@@ -1,0 +1,809 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Skyline">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<style>body{margin:0}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Skyline Maths</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Young+Serif&display=swap">
+<style>
+:root {
+  --ground: #ECEFF3;
+  --surface: #FFFFFF;
+  --ink: #1A2130;
+  --muted: #586577;
+  --line: #D2D9E2;
+  --slate: #2E5A4E;
+  --on-slate: #FFFFFF;
+  --lamp: #F0A43A;
+  --lamp-soft: #FCEBD0;
+  --lamp-ink: #8A5200;
+  --good: #1F7A55;
+  --good-bg: #E2F2EA;
+  --bad: #B3372F;
+  --bad-bg: #FAE6E3;
+  --bld: #A3B0C1;
+  --roof: #5E6D82;
+  --win: #D3DAE4;
+  --win-on: #F0A43A;
+  --display: "Young Serif", "Iowan Old Style", Georgia, serif;
+  --body: "Atkinson Hyperlegible", -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #10151F; --surface: #19202D; --ink: #E6EBF2; --muted: #9BA7B7; --line: #2A3446;
+    --slate: #8FD0BC; --on-slate: #0F1622; --lamp: #F4AE4A; --lamp-soft: #3A2C14; --lamp-ink: #F4B962;
+    --good: #62C99C; --good-bg: #14302A; --bad: #EF8076; --bad-bg: #3A1C1A;
+    --bld: #243048; --roof: #33415A; --win: #1A2232; --win-on: #F4AE4A;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #10151F; --surface: #19202D; --ink: #E6EBF2; --muted: #9BA7B7; --line: #2A3446;
+  --slate: #8FD0BC; --on-slate: #0F1622; --lamp: #F4AE4A; --lamp-soft: #3A2C14; --lamp-ink: #F4B962;
+  --good: #62C99C; --good-bg: #14302A; --bad: #EF8076; --bad-bg: #3A1C1A;
+  --bld: #243048; --roof: #33415A; --win: #1A2232; --win-on: #F4AE4A;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--ground); color: var(--ink);
+  font-family: var(--body); font-size: 18px; line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; touch-action: manipulation; cursor: pointer; }
+button:focus-visible, textarea:focus-visible { outline: 3px solid var(--lamp); outline-offset: 2px; }
+.wrap { max-width: 780px; margin: 0 auto; padding: 28px 20px 56px; display: flex; flex-direction: column; gap: 28px; }
+
+h1, h2, h3 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.15; }
+h1 { font-size: 40px; letter-spacing: -0.01em; }
+h2 { font-size: 28px; }
+h3 { font-size: 22px; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: 15px; }
+.eyebrow { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+
+/* ── buttons ── */
+.btn {
+  min-height: 56px; padding: 0 26px; border-radius: 999px; border: 2px solid transparent;
+  font-weight: 700; font-size: 19px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn.primary { background: var(--slate); color: var(--on-slate); }
+.btn.ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+.btn.good { background: var(--good-bg); border-color: var(--good); color: var(--good); }
+.btn.small { min-height: 44px; font-size: 16px; padding: 0 18px; }
+.btn.danger { background: var(--bad-bg); border-color: var(--bad); color: var(--bad); }
+.linkish { background: none; border: 0; padding: 6px 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; font-size: 16px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+/* ── skyline ── */
+.skyline { width: 100%; height: auto; display: block; }
+.skyline .bld { fill: var(--bld); }
+.skyline .roof { fill: var(--roof); }
+.skyline .win { fill: var(--win); transition: fill 700ms ease; }
+.skyline .win.on { fill: var(--win-on); }
+.skyline .day { fill: var(--muted); font: 700 13px var(--body); letter-spacing: 0.06em; text-transform: uppercase; }
+.skyline .day.today { fill: var(--ink); }
+.skyline .street { fill: var(--roof); }
+
+/* ── home ── */
+.masthead { display: flex; flex-direction: column; gap: 6px; }
+.masthead p { font-size: 19px; color: var(--muted); }
+.week-note { font-size: 15px; color: var(--muted); margin-top: -18px; text-align: right; font-variant-numeric: tabular-nums; }
+.today {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 22px;
+  padding: 26px; display: grid; grid-template-columns: 1fr auto; gap: 18px 24px; align-items: center;
+}
+.today .facts { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 16px; font-variant-numeric: tabular-nums; }
+.today .facts strong { color: var(--ink); }
+@media (max-width: 600px) { .today { grid-template-columns: 1fr; } .today .btn { width: 100%; } }
+
+.units { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.unit {
+  display: grid; grid-template-columns: 1fr 150px auto; gap: 8px 20px; align-items: center;
+  padding: 18px 0; border-top: 1px solid var(--line);
+}
+.unit:last-child { border-bottom: 1px solid var(--line); }
+.unit .t { display: flex; flex-direction: column; gap: 2px; }
+.unit .t .name { font-family: var(--display); font-size: 21px; line-height: 1.25; }
+.unit .t .ja { font-size: 15px; color: var(--muted); }
+.chip { align-self: flex-start; font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; margin-bottom: 4px; border: 1px solid transparent; }
+.chip.next { background: var(--lamp-soft); color: var(--lamp-ink); }
+.chip.review { border-color: var(--slate); color: var(--slate); }
+.chip.bank { border-color: var(--line); color: var(--muted); }
+.meter { display: flex; flex-direction: column; gap: 5px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; display: flex; }
+.bar i { display: block; height: 100%; background: var(--lamp); border-radius: 3px; }
+.bar.two i { border-radius: 0; }
+.bar i.lrn { opacity: 0.4; }
+.meter .of { opacity: 0.75; }
+.legend { font-size: 15px; color: var(--muted); display: flex; gap: 6px 18px; flex-wrap: wrap; align-items: center; }
+.legend i { display: inline-block; width: 18px; height: 6px; border-radius: 3px; background: var(--lamp); margin-right: 6px; vertical-align: middle; }
+.legend i.lrn { opacity: 0.4; }
+.gain { font-size: 18px; }
+@media (max-width: 600px) {
+  .unit { grid-template-columns: 1fr auto; }
+  .unit .meter { grid-column: 1 / -1; grid-row: 2; }
+}
+.foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* ── quiz ── */
+.topbar { display: flex; align-items: center; gap: 16px; }
+.segs { flex: 1; display: flex; gap: 4px; }
+.segs i { flex: 1; height: 8px; border-radius: 4px; background: var(--line); }
+.segs i.ok { background: var(--good); }
+.segs i.no { background: var(--bad); }
+.segs i.cur { background: var(--lamp); }
+.timer { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--muted); min-width: 56px; text-align: right; }
+.timer.over { color: var(--lamp-ink); }
+
+.stage { display: flex; flex-direction: column; gap: 22px; }
+.q { font-size: 25px; line-height: 1.45; text-wrap: pretty; }
+.blank {
+  display: inline-block; min-width: 4.2em; border-bottom: 3px solid var(--ink);
+  padding: 0 4px; line-height: 1.1; text-align: center;
+}
+.blank.filled { border-color: var(--good); color: var(--good); font-weight: 700; }
+.hintbox { background: var(--lamp-soft); color: var(--ink); border-radius: 14px; padding: 14px 18px; font-size: 18px; }
+.feedback { border-radius: 18px; padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; border: 2px solid; }
+.feedback.ok { background: var(--good-bg); border-color: var(--good); }
+.feedback.no { background: var(--bad-bg); border-color: var(--bad); }
+.fb-title { font-family: var(--display); font-size: 24px; }
+.feedback.ok .fb-title { color: var(--good); }
+.feedback.no .fb-title { color: var(--bad); }
+.feedback .btn { align-self: flex-end; margin-top: 4px; }
+
+/* ── end ── */
+.score { font-family: var(--display); font-size: 64px; line-height: 1; font-variant-numeric: tabular-nums; }
+.score span { font-size: 28px; color: var(--muted); }
+.recap { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.recap li { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; display: flex; flex-direction: column; gap: 4px; }
+.recap .a { color: var(--good); font-weight: 700; }
+
+/* ── parent ── */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 22px; display: flex; flex-direction: column; gap: 14px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat b { font-family: var(--display); font-weight: 400; font-size: 32px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 14px; color: var(--muted); }
+@media (max-width: 600px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+.skill-row { display: grid; grid-template-columns: 180px 1fr 92px; gap: 12px; align-items: center; font-size: 16px; }
+.skill-row .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.skill-row .bar { height: 10px; border-radius: 5px; }
+.skill-row .bar i.low { background: var(--bad); }
+.skill-row .bar i.mid { background: var(--lamp); }
+.skill-row .bar i.hi { background: var(--good); }
+@media (max-width: 600px) { .skill-row { grid-template-columns: 1fr 80px; } .skill-row .bar { grid-column: 1 / -1; grid-row: 2; } }
+.missed { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.missed li { padding: 10px 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; font-size: 16px; }
+.missed .cnt { color: var(--bad); font-weight: 700; font-variant-numeric: tabular-nums; }
+.src { font-size: 15px; color: var(--muted); }
+.src li { margin-bottom: 4px; }
+textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, monospace; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); }
+.note { font-size: 15px; color: var(--muted); }
+.msg { font-size: 15px; color: var(--good); font-weight: 700; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.tally { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: -10px; }
+.tally > div { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 20px; display: flex; flex-direction: column; gap: 2px; }
+.tally b { font-family: var(--body); font-weight: 700; font-size: 40px; line-height: 1.05; color: var(--slate); font-variant-numeric: tabular-nums; }
+.tally span { font-size: 16px; color: var(--muted); }
+/* ── maths problem ── */
+.prob { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 28px 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
+.eq { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; font-family: var(--body); font-weight: 700; font-size: 40px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.eq .op { color: var(--muted); }
+.eq .lbl { font-family: var(--body); font-size: 20px; color: var(--muted); font-weight: 700; }
+.frac { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; }
+.frac .bar-line { width: 100%; min-width: 1.6em; height: 3px; background: var(--ink); border-radius: 2px; }
+.box {
+  min-width: 2.4em; min-height: 1.35em; padding: 2px 10px; border-radius: 12px;
+  border: 3px solid var(--line); background: var(--ground); color: var(--ink);
+  font: inherit; text-align: center; display: inline-flex; align-items: center; justify-content: center;
+}
+.box.wide { min-width: 4.6em; }
+.box.active { border-color: var(--slate); background: var(--surface); }
+.box.ok { border-color: var(--good); background: var(--good-bg); color: var(--good); }
+.box.no { border-color: var(--bad); background: var(--bad-bg); }
+.box .ph { color: var(--muted); opacity: 0.5; }
+.paper { font-size: 15px; color: var(--muted); }
+.pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 420px; margin: 0 auto; }
+.pad button {
+  min-height: 62px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface);
+  font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; user-select: none; -webkit-user-select: none;
+}
+.pad button:active { transform: scale(0.97); background: var(--ground); }
+.pad .wide2 { grid-column: span 2; }
+.pad .go { background: var(--slate); color: var(--on-slate); border-color: var(--slate); font-size: 20px; }
+.pad .soft { font-size: 18px; color: var(--muted); }
+.steps { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-variant-numeric: tabular-nums; font-size: 17px; }
+.steps li { padding: 8px 12px; background: var(--surface); border-radius: 10px; border: 1px solid var(--line); }
+.ja-line { font-size: 16px; color: var(--muted); }
+</style>
+
+<div id="app"></div>
+
+<script src="gen.js"></script>
+<script src="content.js"></script>
+<script>
+(function () {
+  "use strict";
+  var C = window.MATH_CONTENT, G = window.MATH_GEN;
+  var app = document.getElementById("app");
+  if (!C || !G) { app.innerHTML = '<div class="wrap"><p>問題データ（content.js / gen.js）が読み込めませんでした。</p></div>'; return; }
+  var T = G.TYPES;
+
+  var KEY = "skyline-maths-v1";
+  var APP = "skyline-maths";
+  var INTERVAL = [0, 1, 3, 7, 14, 30];   // Leitner: box → 次に出すまでの日数
+  var GAP = [0, 1, 2, 2, 3, 4];          // 同じ日に続けてやるとき：box ごとに何回分あければ再出題してよいか
+  var ROUNDS = { short: { secs: 900 }, long: { secs: 1500 } };
+  var MAX_SECS = ROUNDS.short.secs;
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  var unitById = {}; C.units.forEach(function (u) { unitById[u.id] = u; });
+  var unitOfType = {}; C.units.forEach(function (u) { u.types.forEach(function (t) { if (!unitOfType[t]) unitOfType[t] = u.id; }); });
+  var allTypes = Object.keys(unitOfType).filter(function (t) { return T[t]; });
+  function sumMix(kind) { return (C.mix[kind] || []).reduce(function (a, m) { return a + m[1]; }, 0); }
+
+  /* ── storage ── */
+  var storageOk = true;
+  function fresh() { return { items: {}, days: [], sessions: [], follow: [], round: 0 }; }
+  function normalize(s) {
+    s.items = s.items || {}; s.days = s.days || []; s.sessions = s.sessions || [];
+    s.follow = (s.follow || []).filter(function (f) { return typeof f === "string"; });
+    s.round = s.round || 0;
+    s.sessions = s.sessions.filter(function (x) { return x && x.res && x.res.length; });
+    return s;
+  }
+  function validState(s) {
+    if (!s || typeof s !== "object") return false;
+    if (!s.items || typeof s.items !== "object" || Array.isArray(s.items)) return false;
+    if (!Array.isArray(s.days) || !Array.isArray(s.sessions)) return false;
+    if (s.follow != null && !Array.isArray(s.follow)) return false;
+    for (var id in s.items) {
+      var r = s.items[id];
+      if (!r || typeof r !== "object" || typeof r.box !== "number" || typeof r.due !== "string") return false;
+    }
+    for (var i = 0; i < s.sessions.length; i++) {
+      var x = s.sessions[i];
+      if (!x || typeof x.d !== "string" || !Array.isArray(x.res)) return false;
+    }
+    return s.days.every(function (d) { return typeof d === "string"; });
+  }
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      var s = raw ? JSON.parse(raw) : null;
+      if (s && s.items) return normalize(s);
+    } catch (e) { storageOk = false; }
+    return fresh();
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(S)); storageOk = true; } catch (e) { storageOk = false; }
+  }
+  var S = load();
+
+  /* ── dates ── */
+  function ymd(d) {
+    d = d || new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  function today() { return ymd(new Date()); }
+  function addDays(n) { var d = new Date(); d.setDate(d.getDate() + n); return ymd(d); }
+
+  /* ── helpers ── */
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function rec(id) { return S.items[id]; }
+  function roundsSince(r) { return S.round - (r.round || 0); }
+  // 出しどき：日数が来た or （まとめてやる日のために）何回分か空いた
+  function isDue(id) {
+    var r = rec(id); if (!r) return false;
+    if (r.due && r.due <= today()) return true;
+    return roundsSince(r) >= (GAP[r.box] || 1);
+  }
+  function box(id) { var r = rec(id); return r ? r.box : 0; }
+  // secure＝別の回に2回正解（box3以上）＋条件タグがある型は2種類以上のタグで正解
+  function tagsOk(id) { var t = T[id] && T[id].tags; if (!t) return true; var r = rec(id); return !!(r && r.tags && r.tags.length >= 2); }
+  function mastered(id) { return box(id) >= 3 && tagsOk(id); }
+  function learning(id) { return box(id) >= 2 && !mastered(id); }
+
+  // 1回目の答えで記録する。箱が上がるのは1回（round）につき1段まで
+  function record(p, ok) {
+    var id = p.type;
+    var r = S.items[id] || { box: 0, seen: 0, right: 0, wrong: 0, hintRight: 0, tags: [] };
+    r.tags = r.tags || [];
+    r.seen++; r.last = today();
+    if (ok) {
+      r.right++;
+      if (r.upRound !== S.round && r.wrongRound !== S.round) {   // 同じ回で一度でも間違えた型は上げない
+        r.box = Math.min(5, Math.max(1, r.box) + 1); r.due = addDays(INTERVAL[r.box]); r.upRound = S.round;
+        if (p.tag && r.tags.indexOf(p.tag) < 0) r.tags.push(p.tag);
+      }
+    } else {
+      r.wrong++; r.box = 1; r.due = addDays(1); r.wrongRound = S.round;
+      if (S.follow.indexOf(id) < 0) S.follow.push(id);
+      if (S.follow.length > 8) S.follow.shift();
+    }
+    r.round = S.round;
+    S.items[id] = r;
+    if (S.days.indexOf(today()) < 0) { S.days.push(today()); if (S.days.length > 400) S.days.shift(); }
+    save();
+  }
+
+  // 未出題 → 箱の低い順 → 期日前は後回し（同点はランダム）
+  function rankTypes(list) {
+    function score(id) { var r = rec(id); if (!r) return 0; return 1 + r.box * 10 + (isDue(id) ? 0 : 5); }
+    return shuffle(list.slice()).sort(function (a, b) { return score(a) - score(b); });
+  }
+  // 条件タグ：まだ正解していないタグを優先
+  function prefTag(id) {
+    var tags = T[id].tags; if (!tags) return null;
+    var got = (rec(id) && rec(id).tags) || [];
+    var miss = tags.filter(function (t) { return got.indexOf(t) < 0; });
+    return miss.length && Math.random() < 0.6 ? miss[Math.floor(Math.random() * miss.length)] : null;
+  }
+  function makeProblem(id, why) {
+    var p = T[id].make(prefTag(id));
+    p.why = why; return p;
+  }
+
+  /* ── session building ── */
+  // 単元の枠 n 問を、復習が来た型・前回間違えた型 → 箱の低い型 の順で、型を回しながら埋める
+  function fillUnit(uid, n) {
+    var u = unitById[uid]; if (!u) return [];
+    var types = u.types.filter(function (t) { return T[t]; });
+    if (!types.length) return [];
+    var first = types.filter(function (t) { return S.follow.indexOf(t) >= 0; })
+      .concat(types.filter(function (t) { return S.follow.indexOf(t) < 0 && isDue(t); }));
+    var order = first.concat(rankTypes(types.filter(function (t) { return first.indexOf(t) < 0; })));
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var id = order[i % order.length];
+      out.push(makeProblem(id, S.follow.indexOf(id) >= 0 && i < order.length ? "followup" : isDue(id) && i < order.length ? "review" : "new"));
+    }
+    return out;
+  }
+
+  function buildMix(kind) {
+    var q = [];
+    (C.mix[kind] || []).forEach(function (m) { q = q.concat(fillUnit(m[0], m[1])); });
+    // 配分にない単元で、復習の来た型・前回間違えた型があれば Longer round の空きに足す
+    return q.length ? { mode: "mix", unit: (C.mix[kind][0] || [])[0], queue: interleave(q) } : null;
+  }
+  // 同じ単元が続きすぎないように混ぜる（わり算→分数→かけ算…）
+  function interleave(q) {
+    var groups = {}; q.forEach(function (p) { var u = unitOfType[p.type]; (groups[u] = groups[u] || []).push(p); });
+    var keys = shuffle(Object.keys(groups)), out = [];
+    while (out.length < q.length) keys.forEach(function (k) { if (groups[k].length) out.push(groups[k].shift()); });
+    return out;
+  }
+  function buildUnit(uid) {
+    var q = fillUnit(uid, sumMix("short") || 8);
+    return q.length ? { mode: "unit", unit: uid, queue: shuffle(q) } : null;
+  }
+
+  function startSession(s, kind) {
+    MAX_SECS = (ROUNDS[kind] || ROUNDS.short).secs;
+    S.round = (S.round || 0) + 1; save();
+    s.i = 0; s.answers = []; s.start = Date.now();
+    s.log = { d: today(), t: s.start, unit: s.mode === "mix" ? "mix" : s.unit, secs: 0, res: [], miss: [] };
+    S.sessions.push(s.log); if (S.sessions.length > 300) S.sessions.shift();
+    s.before = {}; s.queue.forEach(function (p) { if (!(p.type in s.before)) s.before[p.type] = { box: box(p.type), m: mastered(p.type) }; });
+    sess = s; ui = freshUi(); go("quiz");
+  }
+  function freshUi() { var p = sess && sess.queue[sess.i]; return { vals: {}, active: p ? p.fields[0] : null, tries: 0, done: false }; }
+
+  /* ── view state ── */
+  var view = "home", sess = null, ui = {};
+  function go(v) { view = v; render(); window.scrollTo(0, 0); }
+
+  function render() {
+    if (view === "quiz") app.innerHTML = quizHTML();
+    else if (view === "end") app.innerHTML = endHTML();
+    else if (view === "parent") app.innerHTML = parentHTML();
+    else app.innerHTML = homeHTML();
+    if (view === "end") setTimeout(function () {
+      var w = app.querySelectorAll(".win.pending"); for (var i = 0; i < w.length; i++) w[i].classList.add("on");
+    }, 250);
+  }
+
+  /* ── skyline: 直近7週。練習した週の窓に明かりが灯る ── */
+  function weekStart(d) { var x = new Date(d); var wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); x.setHours(0, 0, 0, 0); return x; }
+  function shortDate(d) { return d.getDate() + " " + MONTHS[d.getMonth()]; }
+  function weekLit(i) {
+    var a = weekStart(new Date()); a.setDate(a.getDate() - (6 - i) * 7);
+    var b = new Date(a); b.setDate(a.getDate() + 7);
+    var from = ymd(a), to = ymd(b);
+    return { lit: S.days.some(function (d) { return d >= from && d < to; }), label: i === 6 ? "This week" : i === 5 ? "Last week" : shortDate(a) };
+  }
+  function weeksLit() { var n = 0; for (var i = 0; i < 7; i++) if (weekLit(i).lit) n++; return n; }
+  function daysSinceLast() {
+    if (!S.days.length) return null;
+    var last = S.days.slice().sort()[S.days.length - 1];
+    return Math.round((new Date(today()) - new Date(last)) / 86400000);
+  }
+  function skyline(pendingNow) {
+    var H = [66, 84, 72, 94, 78, 88, 70], out = "";
+    for (var i = 0; i < 7; i++) {
+      var wk = weekLit(i), isNow = i === 6;
+      var winCls = "win" + (wk.lit ? (pendingNow && isNow ? " pending" : " on") : "");
+      var x = 12 + i * 97, w = 80, base = 112, h = H[i], top = base - h;
+      out += '<rect class="roof" x="' + (x + w - 24) + '" y="' + (top - 9) + '" width="9" height="14"/>';
+      out += '<polygon class="roof" points="' + (x - 3) + "," + (top + 16) + " " + (x + 9) + "," + top + " " + (x + w - 9) + "," + top + " " + (x + w + 3) + "," + (top + 16) + '"/>';
+      out += '<rect class="' + winCls + '" x="' + (x + w / 2 - 6) + '" y="' + (top + 4) + '" width="12" height="9" rx="1.5"/>';
+      out += '<rect class="bld" x="' + x + '" y="' + (top + 16) + '" width="' + w + '" height="' + (h - 16) + '"/>';
+      for (var y = top + 26; y + 16 <= base - 8; y += 24) {
+        for (var c = 0; c < 3; c++) out += '<rect class="' + winCls + '" x="' + (x + 11 + c * 23) + '" y="' + y + '" width="12" height="15" rx="1.5"/>';
+      }
+      out += '<text class="day' + (isNow ? " today" : "") + '" x="' + (x + w / 2) + '" y="' + (base + 24) + '" text-anchor="middle">' + esc(wk.label) + "</text>";
+    }
+    out += '<rect class="street" x="0" y="112" width="700" height="3"/>';
+    return '<svg class="skyline" viewBox="0 0 700 142" role="img" aria-label="The last seven weeks. A window lights up in every week you practised.">' + out + "</svg>";
+  }
+
+  /* ── home ── */
+  function solvedTotal() { var n = 0; for (var id in S.items) n += S.items[id].seen || 0; return n; }
+  function roundsThisWeek() { var from = ymd(weekStart(new Date())); return S.sessions.filter(function (x) { return x.d >= from && x.res.length; }).length; }
+  function tally() {
+    var n = solvedTotal(), w = roundsThisWeek();
+    return '<div class="tally"><div><b>' + n + '</b><span>question' + (n === 1 ? "" : "s") + ' solved so far</span></div>' +
+      '<div><b>' + w + '</b><span>round' + (w === 1 ? "" : "s") + ' this week</span></div></div>';
+  }
+  function homeHTML() {
+    var dueN = allTypes.filter(isDue).length;
+    var nextU = C.units.filter(function (u) { return u.status === "next"; });
+    var thisWeek = weekLit(6).lit;
+    var away = daysSinceLast();
+    var h = '<div class="wrap">';
+    h += '<header class="masthead"><h1>' + esc(C.appName) + "</h1><p>" +
+      (away === null ? "Pick a round whenever you have time — grab some paper and a pencil."
+        : away >= 7 ? "Welcome back. Everything you practised is still here, waiting."
+          : thisWeek ? "This week’s window is lit. Another round?" : "A round or two this week keeps the methods sharp.") + "</p></header>";
+    h += skyline(false);
+    h += tally();
+    h += '<p class="week-note">' + weeksLit() + " of the last 7 weeks" + (away ? " · last round " + away + (away === 1 ? " day ago" : " days ago") : "") + "</p>";
+    h += '<section class="today" aria-label="Practice"><div style="display:flex;flex-direction:column;gap:8px">';
+    h += '<p class="eyebrow">Ready for you</p><h2>' + (nextU.length ? nextU.map(function (u) { return esc(u.title); }).join(" + ") : "A mixed round") + "</h2>";
+    h += '<div class="facts"><span><strong>' + sumMix("short") + "</strong> questions, about <strong>15</strong> minutes</span>" +
+      (dueN ? "<span><strong>" + dueN + "</strong> skill" + (dueN === 1 ? "" : "s") + " ready to look at again</span>" : "") + "</div></div>";
+    h += '<div class="row"><button class="btn primary" data-action="start-mix">Start</button>' +
+      (dueN >= 3 ? '<button class="btn ghost" data-action="start-long">Longer round · ' + sumMix("long") + " questions</button>" : "") + "</div></section>";
+    if (ui.homeMsg) h += '<p class="hintbox" role="status">' + esc(ui.homeMsg) + "</p>";
+
+    h += '<section style="display:flex;flex-direction:column;gap:12px"><h3>Pick a topic</h3>';
+    h += '<p class="legend"><span><i class="lrn"></i>Learning = right once</span><span><i></i>Secure = right again in a later round</span></p><ul class="units">';
+    C.units.forEach(function (u) {
+      var types = u.types.filter(function (t) { return T[t]; });
+      var m = types.filter(mastered).length, l = types.filter(learning).length;
+      var pct = function (n) { return types.length ? Math.round(n / types.length * 100) : 0; };
+      var label = u.status === "next" ? (/^This week/i.test(u.when) ? u.when : "Coming up · " + u.when)
+        : u.status === "review" ? "Look back · " + u.when : "Anytime";
+      h += '<li class="unit"><div class="t"><span class="chip ' + u.status + '">' + esc(label) + '</span><span class="name">' + esc(u.title) + '</span><span class="ja">' + esc(u.ja) + "</span></div>";
+      h += '<div class="meter"><span>' + m + " secure · " + l + ' learning <span class="of">/ ' + types.length + ' skills</span></span><div class="bar two"><i style="width:' + pct(m) + '%"></i><i class="lrn" style="width:' + pct(l) + '%"></i></div></div>';
+      h += '<button class="btn ghost small" data-action="start-unit" data-unit="' + esc(u.id) + '">Practise</button></li>';
+    });
+    h += "</ul></section>";
+    h += '<footer class="foot"><button class="linkish" data-action="parent">保護者メモ（For parents）</button><span class="small muted">Topics updated ' + esc(C.version) + "</span></footer>";
+    return h + storageWarn() + "</div>";
+  }
+  function storageWarn() {
+    return storageOk ? "" : '<p class="note" role="alert">⚠ この端末では記録を保存できていません（プライベートブラウズ等）。通常のタブで開き直してください。</p>';
+  }
+
+  /* ── quiz ── */
+  function elapsed() { return Math.floor((Date.now() - sess.start) / 1000); }
+  function clock() {
+    var left = Math.max(0, MAX_SECS - elapsed());
+    return left === 0 ? "Last one" : Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+  }
+  function topbar() {
+    var segs = sess.queue.map(function (p, k) {
+      var a = sess.answers[k];
+      var cls = a ? (a.ok ? "ok" : "no") : (k === sess.i ? "cur" : "");
+      return '<i class="' + cls + '"></i>';
+    }).join("");
+    return '<div class="topbar"><button class="btn ghost small" data-action="stop" aria-label="Stop and go back">✕ Stop</button><div class="segs" aria-hidden="true">' + segs + '</div><span class="timer" id="timer">' + clock() + "</span></div>";
+  }
+
+  // 入力枠
+  function boxHTML(p, f, wide) {
+    var v = ui.vals[f] || "";
+    var cls = "box" + (wide ? " wide" : "");
+    if (ui.done) cls += ui.result === "correct" ? " ok" : " no";
+    else if (ui.active === f) cls += " active";
+    var label = { x: "answer", q: "quotient", r: "remainder", n: "numerator", m: "denominator" }[f];
+    return '<button class="' + cls + '" data-action="focus" data-f="' + f + '" aria-label="' + label + '"' + (ui.done ? " disabled" : "") + ">" + (v ? esc(v) : '<span class="ph">?</span>') + "</button>";
+  }
+  function fracHTML(top, bottom) { return '<span class="frac"><span>' + top + '</span><span class="bar-line"></span><span>' + bottom + "</span></span>"; }
+
+  function eqHTML(p) {
+    if (p.kind === "mul") return '<div class="eq"><span>' + esc(G.fmt(p.a)) + '</span><span class="op">×</span><span>' + p.b + '</span><span class="op">=</span>' + boxHTML(p, "x", true) + "</div>";
+    if (p.kind === "div") return '<div class="eq"><span>' + esc(G.fmt(p.D)) + '</span><span class="op">÷</span><span>' + p.d + '</span><span class="op">=</span>' + boxHTML(p, "q", true) + '<span class="lbl">r</span>' + boxHTML(p, "r", false) + "</div>";
+    if (p.kind === "simp") return '<div class="eq">' + fracHTML(p.N, p.M) + '<span class="op">=</span>' + fracHTML(boxHTML(p, "n"), boxHTML(p, "m")) + "</div>";
+    // equiv
+    var right = p.missing === 0 ? fracHTML(boxHTML(p, "x"), p.R[1]) : fracHTML(p.R[0], boxHTML(p, "x"));
+    return '<div class="eq">' + fracHTML(p.L[0], p.L[1]) + '<span class="op">=</span>' + right + "</div>";
+  }
+  function askText(p) {
+    if (p.kind === "mul") return "Work it out.";
+    if (p.kind === "div") return "Divide. Write the remainder too (0 if it divides exactly).";
+    if (p.kind === "simp") return "Simplify fully.";
+    return "Find the missing number.";
+  }
+
+  function quizHTML() {
+    var p = sess.queue[sess.i], ty = T[p.type];
+    var tag = p.why === "review" ? " · Back again" : p.why === "followup" ? " · One more try at this skill" : "";
+    var h = '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">';
+    h += '<p class="eyebrow">' + esc(ty.en) + esc(tag) + "</p>";
+    h += '<div class="prob"><p class="muted">' + esc(askText(p)) + "</p>" + eqHTML(p);
+    if (p.kind === "div" || p.kind === "mul") h += '<p class="paper">Use paper for the working.</p>';
+    h += "</div>";
+    if (ui.done) h += feedbackHTML(p);
+    else {
+      if (ui.hint) h += '<div class="hintbox" role="status"><p>' + esc(ui.hint.en) + '</p><p class="ja-line">' + esc(ui.hint.ja) + "</p></div>";
+      h += padHTML(p);
+      if (ui.tries > 0) h += '<div class="row" style="justify-content:center"><button class="linkish" data-action="show">Show me how</button></div>';
+    }
+    return h + "</div></div>";
+  }
+  function padHTML(p) {
+    var h = '<div class="pad" role="group" aria-label="Number keys">';
+    ["7", "8", "9", "4", "5", "6", "1", "2", "3"].forEach(function (d) { h += '<button data-action="key" data-k="' + d + '">' + d + "</button>"; });
+    h += '<button class="soft" data-action="back" aria-label="Delete">⌫</button><button data-action="key" data-k="0">0</button>';
+    h += p.fields.length > 1 ? '<button class="soft" data-action="nextbox">Next box</button>' : '<button class="soft" data-action="clear">Clear</button>';
+    h += '<button class="go" data-action="check" style="grid-column:1 / -1">' + (ui.tries ? "Check again" : "Check") + "</button>";
+    return h + "</div>";
+  }
+
+  var PRAISE = ["Spot on!", "Exactly right.", "Nicely done.", "Yes — well worked.", "Perfect."];
+  function feedbackHTML(p) {
+    var ok = ui.result === "correct";
+    var title = ok ? (ui.tries > 1 ? "Got it on the second go." : PRAISE[Math.floor(Math.random() * PRAISE.length)]) : "Here’s how it works.";
+    var h = '<div class="feedback ' + (ok ? "ok" : "no") + '" role="status"><p class="fb-title">' + esc(title) + "</p>";
+    if (!ok) h += "<p>The answer is <strong>" + esc(answerText(p)) + "</strong>.</p>";
+    if (!ok || ui.tries > 1) h += '<ul class="steps">' + p.steps.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>";
+    h += '<button class="btn primary" data-action="next">' + (isLast() ? "Finish" : "Next") + " →</button></div>";
+    return h;
+  }
+  function answerText(p) {
+    var a = p.answer;
+    if (p.kind === "div") return G.fmt(a.q) + " r " + a.r;
+    if (p.kind === "simp") return a.n + "/" + a.m;
+    return G.fmt(a.x);
+  }
+  function givenText(p, vals) {
+    if (p.kind === "div") return (vals.q || "?") + " r " + (vals.r || "?");
+    if (p.kind === "simp") return (vals.n || "?") + "/" + (vals.m || "?");
+    return vals.x || "?";
+  }
+
+  function isLast() { return sess.i + 1 >= sess.queue.length || elapsed() >= MAX_SECS; }
+
+  function check() {
+    var p = sess.queue[sess.i];
+    var res = T[p.type].check(p, ui.vals);
+    if (res.status === "incomplete") { ui.hint = res.hint; render(); return; }
+    ui.tries++;
+    if (ui.tries === 1) {
+      var a1 = { type: p.type, ok: res.status === "correct", q: p.text, given: givenText(p, ui.vals), a: answerText(p), code: res.code || null };
+      sess.answers[sess.i] = a1;
+      sess.log.res.push([a1.type, a1.ok ? 1 : 0]); sess.log.secs = elapsed(); sess.log.d = today();
+      if (!a1.ok) sess.log.miss.push({ type: a1.type, q: a1.q, given: a1.given, a: a1.a, code: a1.code });
+      record(p, a1.ok);   // ここで保存される（1問ごと）
+    }
+    if (res.status === "correct") {
+      if (ui.tries > 1) { var r = S.items[p.type]; r.hintRight = (r.hintRight || 0) + 1; sess.answers[sess.i].hintRight = true; save(); }
+      ui.done = true; ui.result = "correct";
+    } else if (ui.tries === 1) {
+      ui.hint = res.hint;
+    } else { ui.done = true; ui.result = "wrong"; }
+    render();
+  }
+  // 1回目の答えで、前回の誤答の予約を外す（間違えたら record がまた積む）
+  function clearFollow(p) { var r = rec(p.type); if (sess.answers[sess.i] && sess.answers[sess.i].ok && !(r && r.wrongRound === S.round)) S.follow = S.follow.filter(function (t) { return t !== p.type; }); }
+
+  function advance() {
+    var p = sess.queue[sess.i]; clearFollow(p); save();
+    if (isLast()) { finish(); return; }
+    sess.i++; ui = freshUi(); render(); window.scrollTo(0, 0);
+  }
+
+  function finish() {
+    var res = sess.answers.filter(Boolean);
+    sess.log.secs = elapsed();
+    if (!res.length) S.sessions = S.sessions.filter(function (x) { return x !== sess.log; });
+    save();
+    go(res.length ? "end" : "home");
+  }
+
+  /* ── end ── */
+  function endHTML() {
+    var res = sess.answers.filter(Boolean);
+    var ok = res.filter(function (a) { return a.ok; }).length;
+    var missed = res.filter(function (a) { return !a.ok; });
+    var timeUp = elapsed() >= MAX_SECS && res.length < sess.queue.length;
+    var h = '<div class="wrap"><header class="masthead"><p class="eyebrow">' + (timeUp ? "Time’s up for this round" : "Round complete") + "</p><h1>" +
+      (ok === res.length ? "A perfect round." : ok / res.length >= 0.7 ? "Lovely work." : "Good effort — that’s how methods stick.") + "</h1></header>";
+    h += '<p class="score">' + ok + " <span>/ " + res.length + " right first time</span></p>";
+    var types = Object.keys(sess.before).filter(function (t) { return res.some(function (a) { return a.type === t; }); });
+    var nowSecure = types.filter(function (t) { return !sess.before[t].m && mastered(t); }).length;
+    var nowLearning = types.filter(function (t) { return sess.before[t].box < 2 && learning(t); }).length;
+    if (nowSecure || nowLearning) {
+      h += '<p class="gain">' + (nowSecure ? "<strong>" + nowSecure + "</strong> skill" + (nowSecure > 1 ? "s" : "") + " now secure" : "") + (nowSecure && nowLearning ? " · " : "") +
+        (nowLearning ? "<strong>" + nowLearning + "</strong> now learning" : "") +
+        (nowLearning ? '<br><span class="muted small">Get them right again in a later round and they become secure.</span>' : "") + "</p>";
+    }
+    h += skyline(true);
+    if (missed.length) {
+      h += '<section style="display:flex;flex-direction:column;gap:12px"><h3>Worth another look</h3><ul class="recap">';
+      missed.forEach(function (a) { h += "<li><span>" + esc(a.q) + '</span><span class="a">✓ ' + esc(a.a) + "</span></li>"; });
+      h += '</ul><p class="muted small">These skills come back next time — with new numbers.</p></section>';
+    }
+    h += '<div class="row"><button class="btn primary" data-action="start-mix">Another round</button>' +
+      '<button class="btn ghost" data-action="home">Back to the rooftops</button></div></div>';
+    return h;
+  }
+
+  /* ── parent (Japanese) ── */
+  function summarize() {
+    var m = addDays(-(((new Date().getDay() + 6) % 7) + 21));   // 直近4週の始まり（月曜）
+    var since = addDays(-30);
+    var week = S.sessions.filter(function (s) { return s.d >= m; });
+    var mins = Math.round(week.reduce(function (a, s) { return a + (s.secs || 0); }, 0) / 60);
+    var wr = 0, wt = 0, skills = {};
+    S.sessions.forEach(function (s) {
+      s.res.forEach(function (r) {
+        if (!T[r[0]]) return;
+        if (s.d >= m) { wt++; wr += r[1]; }
+        if (s.d >= since) { var k = skills[r[0]] || (skills[r[0]] = { right: 0, total: 0 }); k.total++; k.right += r[1]; }
+      });
+    });
+    var recent = [];
+    S.sessions.slice().reverse().forEach(function (s) { (s.miss || []).forEach(function (x) { if (recent.length < 10) recent.push({ d: s.d, type: x.type, q: x.q, given: x.given, a: x.a, code: x.code }); }); });
+    return { weeks: weeksLit(), sessions: week.length, minutes: mins, accuracy: wt ? Math.round(wr / wt * 100) : null, skills: skills, recentMisses: recent };
+  }
+
+  function exportText() {
+    return JSON.stringify({ app: APP, content: C.version, exported: new Date().toISOString(), summary: summarize(), state: S });
+  }
+
+  function parentHTML() {
+    var sm = summarize();
+    var h = '<div class="wrap"><div class="row" style="justify-content:space-between"><button class="btn ghost small" data-action="home">← 戻る</button></div>' + storageWarn();
+    h += '<header class="masthead"><p class="eyebrow">For parents</p><h1>保護者メモ</h1><p>学校の宿題とは別の、自主練習用です。宿題の答えはここに入れないでください（学校方針：宿題は本人だけで・親は直さない）。</p></header>';
+    h += '<section class="panel"><h3>直近4週</h3><div class="stats">' +
+      '<div class="stat"><b>' + sm.weeks + '</b><span>取り組んだ週（7週中）</span></div>' +
+      '<div class="stat"><b>' + sm.sessions + '</b><span>回数</span></div>' +
+      '<div class="stat"><b>' + sm.minutes + '</b><span>合計（分）</span></div>' +
+      '<div class="stat"><b>' + (sm.accuracy == null ? "—" : sm.accuracy + "%") + '</b><span>1回目の正答率</span></div></div></section>';
+
+    h += '<section class="panel"><h3>型別（直近30日・1回目の正誤）</h3>';
+    var keys = Object.keys(T).filter(function (k) { return sm.skills[k]; });
+    if (!keys.length) h += '<p class="muted">まだ記録がありません。</p>';
+    keys.forEach(function (k) {
+      var s = sm.skills[k], p = Math.round(s.right / s.total * 100), r = rec(k) || {};
+      h += '<div class="skill-row"><span>' + esc(T[k].ja) + (mastered(k) ? " ✓" : "") + '</span><div class="bar"><i class="' + (p < 60 ? "low" : p < 80 ? "mid" : "hi") + '" style="width:' + p + '%"></i></div><span class="num">' + p + "% · " + s.right + "/" + s.total + (r.hintRight ? "<br>手がかり後 " + r.hintRight : "") + "</span></div>";
+    });
+    h += '<p class="note">60%未満（赤）は要練習。間違えた型は、次の回に新しい数字で自動で出ます。✓＝secure（別の回に2回正解・条件の違う問題でも正解）。「手がかり後」＝1回目は違ったが、手がかりを見て直せた回数。</p></section>';
+
+    h += '<section class="panel"><h3>最近まちがえた問題</h3>';
+    if (!sm.recentMisses.length) h += '<p class="muted">まだありません。</p>';
+    else {
+      h += '<ul class="missed">';
+      sm.recentMisses.forEach(function (m) {
+        h += "<li><span>" + esc(m.q) + '　<span class="small muted">（' + esc(T[m.type] ? T[m.type].ja : m.type) + '）</span><br><span class="small">入れた答え：' + esc(m.given) + '　<span style="color:var(--good)">正解：' + esc(m.a) + "</span></span></span><span class=\"small muted\">" + esc(m.d.slice(5)) + "</span></li>";
+      });
+      h += "</ul>";
+    }
+    h += "</section>";
+
+    h += '<section class="panel"><h3>単元の出どころ</h3><ul class="src">';
+    C.units.forEach(function (u) { h += "<li><strong>" + esc(u.title) + "</strong>：" + esc(u.source) + "</li>"; });
+    h += '</ul><p class="note">数字は毎回プログラムが作り、答えもプログラムが計算します。毎週金曜のニュースレターを読んだあと、AIが単元を差し替えます。</p></section>';
+
+    h += '<section class="panel"><h3>記録の書き出し・バックアップ</h3>';
+    h += '<p class="note">記録はこのiPadの中だけに保存されます。週に1回「コピー」して Claude に貼ると、つまずきを次の週に反映します。機種変更・データ消去の前にもコピーして保存してください。</p>';
+    h += '<textarea id="exp" readonly>' + esc(exportText()) + "</textarea>";
+    h += '<div class="row"><button class="btn primary small" data-action="copy">コピー</button>' + (ui.msg ? '<span class="msg">' + esc(ui.msg) + "</span>" : "") + "</div>";
+    h += '<p class="note">バックアップから戻す：下に貼り付けて「読み込む」。</p><textarea id="imp" placeholder="ここに貼り付け"></textarea>';
+    h += '<div class="row"><button class="btn ghost small" data-action="import">読み込む</button>' + (ui.imsg ? '<span class="msg">' + esc(ui.imsg) + "</span>" : "") + "</div>";
+    h += '<div class="row" style="margin-top:8px">' + (ui.resetArmed
+      ? '<button class="btn danger small" data-action="reset-confirm">本当にすべての記録を消す</button><button class="btn ghost small" data-action="reset-cancel">やめる</button>'
+      : '<button class="linkish" data-action="reset">記録をリセット…</button>') + "</div></section>";
+    return h + "</div>";
+  }
+
+  /* ── input ── */
+  function typeKey(k) {
+    if (ui.done || !ui.active) return;
+    var v = ui.vals[ui.active] || "";
+    if (v.length >= 7) return;
+    ui.vals[ui.active] = v === "0" ? k : v + k;
+    ui.hint = ui.tries ? ui.hint : null;
+    render();
+  }
+  function backKey() { if (ui.done || !ui.active) return; ui.vals[ui.active] = (ui.vals[ui.active] || "").slice(0, -1); render(); }
+  function nextBox() {
+    var f = sess.queue[sess.i].fields, i = f.indexOf(ui.active);
+    ui.active = f[(i + 1) % f.length]; render();
+  }
+
+  /* ── events ── */
+  app.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-action]");
+    if (!el || el.disabled) return;
+    var a = el.getAttribute("data-action");
+    if (a === "start-mix" || a === "start-long") { var kind = a === "start-long" ? "long" : "short"; var s = buildMix(kind); if (s) startSession(s, kind); }
+    else if (a === "start-unit") { var su = buildUnit(el.getAttribute("data-unit")); if (su) startSession(su, "short"); }
+    else if (a === "stop") finish();
+    else if (a === "home") { sess = null; ui = {}; go("home"); }
+    else if (a === "parent") { ui = {}; go("parent"); }
+    else if (a === "focus") { ui.active = el.getAttribute("data-f"); render(); }
+    else if (a === "key") typeKey(el.getAttribute("data-k"));
+    else if (a === "back") backKey();
+    else if (a === "clear") { ui.vals = {}; render(); }
+    else if (a === "nextbox") nextBox();
+    else if (a === "check") check();
+    else if (a === "show") { ui.done = true; ui.result = "wrong"; render(); }
+    else if (a === "next") advance();
+    else if (a === "copy") {
+      var ta = document.getElementById("exp"), txt = ta.value;
+      var done = function () { ui.msg = "コピーしました"; render(); };
+      var fallback = function () {
+        try { ta.removeAttribute("readonly"); ta.focus(); ta.select(); ta.setSelectionRange(0, txt.length); var okc = document.execCommand("copy"); ta.setAttribute("readonly", ""); if (okc) return done(); } catch (err) {}
+        ui.msg = "自動コピーできませんでした。枠内を長押し →「すべてを選択」→「コピー」"; render();
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
+    }
+    else if (a === "import") {
+      try {
+        var obj = JSON.parse(document.getElementById("imp").value);
+        if (!obj || obj.app !== APP || !validState(obj.state)) throw new Error("bad");
+        var prev = S;
+        S = normalize(obj.state); save();
+        if (!storageOk) { S = prev; ui = { imsg: "保存できませんでした。記録は元のままです。" }; render(); return; }
+        ui = { imsg: "読み込みました" }; render();
+      } catch (err) { ui.imsg = "読み込めませんでした。コピーした文字列を全部そのまま貼ってください。"; render(); }
+    }
+    else if (a === "reset") { ui.resetArmed = true; render(); }
+    else if (a === "reset-cancel") { ui.resetArmed = false; render(); }
+    else if (a === "reset-confirm") { S = fresh(); save(); ui = { msg: "" }; go("home"); }
+  });
+
+  // 外付けキーボード（Mac での確認用・iPad のキーボードカバーにも）
+  document.addEventListener("keydown", function (e) {
+    if (view !== "quiz" || !sess) return;
+    if (ui.done) { if (e.key === "Enter") { e.preventDefault(); advance(); } return; }
+    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); typeKey(e.key); }
+    else if (e.key === "Backspace") { e.preventDefault(); backKey(); }
+    else if (e.key === "Tab" || e.key === "/" || e.key === "r") { e.preventDefault(); nextBox(); }
+    else if (e.key === "Enter") { e.preventDefault(); check(); }
+  });
+
+  setInterval(function () {
+    if (view !== "quiz" || !sess) return;
+    var t = document.getElementById("timer");
+    if (t) { t.textContent = clock(); t.classList.toggle("over", elapsed() >= MAX_SECS); }
+  }, 1000);
+
+  try { localStorage.setItem(KEY + "-probe", "1"); localStorage.removeItem(KEY + "-probe"); } catch (e) { storageOk = false; }
+  render();
+})();
+</script>
+
+</body>
+</html>
