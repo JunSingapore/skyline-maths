@@ -175,6 +175,167 @@
     return { status: "wrong", code: "other", hint: H(p.L[k] + " " + op + " ? = " + p.R[k] + ". Then do the same to the other number.", p.L[k] + " " + op + " ? = " + p.R[k] + " を考えて、もう一方にも同じことをしよう。") };
   }
 
+  /* ── 分数のたし算・ひき算・帯分数（W8 追加） ── */
+  function lcm(a, b) { return a / gcd(a, b) * b; }
+  function red(n, d) { var g = gcd(n, d); return [n / g, d / g]; }           // 約分
+  function coprimeTop(b) { for (;;) { var a = rnd(1, b - 1); if (gcd(a, b) === 1) return a; } }
+  function frS(f) { return f[0] + "/" + f[1]; }                              // [n,d] → "n/d"
+  function mixS(w, n, d) { return w + " " + n + "/" + d; }
+  function toMixed(n, d) { return [Math.floor(n / d), n % d, d]; }           // 仮分数 → [整数, 分子, 分母]
+  // 2つの分数の分母をそろえる途中式
+  function commonSteps(A, B, op) {
+    var L = lcm(A[1], B[1]), ka = L / A[1], kb = L / B[1];
+    var s = [];
+    if (A[1] === B[1]) return s;
+    s.push("A common multiple of " + A[1] + " and " + B[1] + " is " + L + ".");
+    var ch = [];
+    if (ka > 1) ch.push(frS(A) + " = " + (A[0] * ka) + "/" + L + "  (× " + ka + ")");
+    if (kb > 1) ch.push(frS(B) + " = " + (B[0] * kb) + "/" + L + "  (× " + kb + ")");
+    s.push(ch.join(",  "));
+    return s;
+  }
+
+  // A, B は [分子, 分母]。op は "+" か "−"
+  function fopValue(A, B, op) {
+    var L = lcm(A[1], B[1]), n = A[0] * (L / A[1]) + (op === "+" ? 1 : -1) * B[0] * (L / B[1]);
+    return { n: n, L: L };
+  }
+  // 分母の組を選ぶ：related＝一方が他方の倍数／unlike＝どちらも割り切れない
+  function denPair(rel) {
+    for (;;) {
+      var b, d;
+      if (rel) { b = rnd(2, 6); d = b * rnd(2, 4); if (d > 24) continue; if (Math.random() < 0.5) { var t = b; b = d; d = t; } }
+      else { b = rnd(2, 10); d = rnd(2, 12); if (b === d || b % d === 0 || d % b === 0 || lcm(b, d) > 40) continue; }
+      return [b, d];
+    }
+  }
+  // 結果が真分数（0 < x < 1）になるたし算・ひき算
+  function fopMake(id, rel) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["add", "sub"]), op = tag === "add" ? "+" : "−";
+      for (;;) {
+        var dd = denPair(rel), A = [coprimeTop(dd[0]), dd[0]], B = [coprimeTop(dd[1]), dd[1]];
+        if (op === "−" && A[0] * B[1] <= B[0] * A[1]) { var t = A; A = B; B = t; }
+        var v = fopValue(A, B, op);
+        if (v.n <= 0 || v.n >= v.L) continue;
+        var r = red(v.n, v.L);
+        var steps = commonSteps(A, B, op);
+        steps.push((A[0] * v.L / A[1]) + "/" + v.L + " " + op + " " + (B[0] * v.L / B[1]) + "/" + v.L + " = " + v.n + "/" + v.L + "  (only the tops change)");
+        if (r[1] !== v.L) steps.push("Simplify: " + v.n + "/" + v.L + " = " + frS(r));
+        return { type: id, tag: tag, kind: "fop", A: A, B: B, op: op, out: "frac",
+          text: frS(A) + " " + op + " " + frS(B), fields: ["n", "m"], answer: { n: r[0], m: r[1] }, steps: steps };
+      }
+    };
+  }
+  // たし算で 1 を超える → 帯分数で答える
+  function fopOverMake(id) {
+    return function () {
+      for (;;) {
+        var dd = denPair(Math.random() < 0.3), A = [coprimeTop(dd[0]), dd[0]], B = [coprimeTop(dd[1]), dd[1]];
+        var v = fopValue(A, B, "+");
+        if (v.n <= v.L || v.n % v.L === 0) continue;
+        var r = red(v.n, v.L), mx = toMixed(r[0], r[1]);
+        var steps = commonSteps(A, B, "+");
+        steps.push((A[0] * v.L / A[1]) + "/" + v.L + " + " + (B[0] * v.L / B[1]) + "/" + v.L + " = " + v.n + "/" + v.L);
+        if (r[1] !== v.L) steps.push("Simplify: " + v.n + "/" + v.L + " = " + frS(r));
+        steps.push(frS(r) + " is more than 1:  " + r[0] + " ÷ " + r[1] + " = " + mx[0] + " remainder " + mx[1] + "  →  " + mixS(mx[0], mx[1], mx[2]));
+        return { type: id, tag: null, kind: "fop", A: A, B: B, op: "+", out: "mixed",
+          text: frS(A) + " + " + frS(B), fields: ["w", "n", "m"], answer: { w: mx[0], n: mx[1], m: mx[2] }, steps: steps };
+      }
+    };
+  }
+  // 帯分数どうしのたし算・ひき算（答えは整数部分 1 以上の帯分数）
+  function mopMake(id, op) {
+    return function (prefTag) {
+      var tag = op === "+" ? (prefTag || pick(["plain", "carry"])) : (prefTag || pick(["plain", "borrow"]));
+      for (;;) {
+        var dd = denPair(Math.random() < 0.4);
+        if (lcm(dd[0], dd[1]) > 24) continue;
+        var A = [coprimeTop(dd[0]), dd[0]], B = [coprimeTop(dd[1]), dd[1]];
+        var w1 = rnd(1, 4), w2 = rnd(1, 3);
+        var v = fopValue(A, B, op), L = v.L;
+        var cross = op === "+" ? v.n > L : v.n < 0;           // 繰り上がり／繰り下がり
+        if (v.n === 0 || v.n === L) continue;
+        if (cross !== (tag !== "plain")) continue;
+        if (op === "−") { w1 = w2 + rnd(cross ? 2 : 1, 3); }
+        var total = (w1 * L + A[0] * L / A[1]) + (op === "+" ? 1 : -1) * (w2 * L + B[0] * L / B[1]);
+        if (total <= L || total % L === 0) continue;
+        var r = red(total, L), mx = toMixed(r[0], r[1]);
+        var steps = commonSteps(A, B, op);
+        if (op === "+") {
+          steps.push("Wholes: " + w1 + " + " + w2 + " = " + (w1 + w2) + ".  Fractions: " + (A[0] * L / A[1]) + "/" + L + " + " + (B[0] * L / B[1]) + "/" + L + " = " + v.n + "/" + L);
+          if (cross) steps.push(v.n + "/" + L + " is more than 1, so carry 1 whole to the wholes.");
+        } else if (!cross) {
+          steps.push("Wholes: " + w1 + " − " + w2 + " = " + (w1 - w2) + ".  Fractions: " + (A[0] * L / A[1]) + "/" + L + " − " + (B[0] * L / B[1]) + "/" + L + " = " + v.n + "/" + L);
+        } else {
+          steps.push((A[0] * L / A[1]) + "/" + L + " is smaller than " + (B[0] * L / B[1]) + "/" + L + ", so borrow 1 whole:  " + mixS(w1, A[0] * L / A[1], L) + " = " + mixS(w1 - 1, A[0] * L / A[1] + L, L));
+          steps.push("Wholes: " + (w1 - 1) + " − " + w2 + " = " + (w1 - 1 - w2) + ".  Fractions: " + (A[0] * L / A[1] + L) + "/" + L + " − " + (B[0] * L / B[1]) + "/" + L + " = " + (v.n + L) + "/" + L);
+        }
+        steps.push("Answer: " + mixS(mx[0], mx[1], mx[2]) + (r[1] !== L ? "  (simplified)" : ""));
+        return { type: id, tag: tag, kind: "mop", A: [w1, A[0], A[1]], B: [w2, B[0], B[1]], op: op, out: "mixed",
+          text: mixS(w1, A[0], A[1]) + " " + op + " " + mixS(w2, B[0], B[1]), fields: ["w", "n", "m"],
+          answer: { w: mx[0], n: mx[1], m: mx[2] }, steps: steps };
+      }
+    };
+  }
+  // 仮分数 ⇄ 帯分数
+  function convMake(id, dir) {
+    return function () {
+      var d = rnd(2, 12), a = coprimeTop(d), w = rnd(1, 9), N = w * d + a;
+      if (dir === "toMixed") return { type: id, tag: null, kind: "conv", dir: dir, N: N, D: d, out: "mixed",
+        text: N + "/" + d, fields: ["w", "n", "m"], answer: { w: w, n: a, m: d },
+        steps: ["How many " + d + "s are in " + N + "?  " + N + " ÷ " + d + " = " + w + " remainder " + a + ".",
+          w + " wholes, and " + a + " " + d + (a === 1 ? "" : "s") + " left over  →  " + mixS(w, a, d)] };
+      return { type: id, tag: null, kind: "conv", dir: dir, W: w, A: a, D: d, out: "frac",
+        text: mixS(w, a, d), fields: ["n", "m"], answer: { n: N, m: d },
+        steps: [w + " wholes = (" + w + " × " + d + ")/" + d + " = " + (w * d) + "/" + d,
+          (w * d) + " + " + a + " = " + N + "  →  " + N + "/" + d] };
+    };
+  }
+
+  // 答えの値（分数）を [分子, 分母] で
+  function target(p) { var a = p.answer; return p.out === "mixed" ? [a.w * a.m + a.n, a.m] : [a.n, a.m]; }
+  function wcheck(p, inp) {
+    var mixed = p.out === "mixed";
+    var w = mixed ? num(inp.w) : 0, n = num(inp.n), m = num(inp.m);
+    if (n == null || m == null || w == null) return { status: "incomplete", hint: mixed ? H("Fill in all three boxes: the whole number, the top and the bottom.", "整数・分子・分母の3つを入れてね。") : H("Fill in the top and the bottom.", "分子と分母の両方を入れてね。") };
+    if (m === 0) return { status: "incomplete", hint: H("The bottom number can’t be 0.", "分母は0にできないよ。") };
+    var a = p.answer, T = target(p), vn = w * m + n;
+    var same = vn * T[1] === T[0] * m;
+    if (same) {
+      if (mixed) {
+        if (w === a.w && n === a.n && m === a.m) return { status: "correct" };
+        if (n >= m) return { status: "wrong", code: "improper-part", hint: H("Right value — but the fraction part is 1 or more. Turn it into wholes.", "値は合っているよ。でも分数の部分が1以上だね。整数にくり上げよう。") };
+        return { status: "wrong", code: "not-simplest", hint: H("Right value — can the fraction part be simplified?", "値は合っているよ。分数の部分はまだ約分できるかな？") };
+      }
+      if (n === a.n && m === a.m) return { status: "correct" };
+      return { status: "wrong", code: "not-simplest", hint: p.kind === "conv" ? H("Right value — keep the same bottom number as the mixed number.", "値は合っているよ。分母は帯分数と同じにしよう。") : H("Right value — but it can be simplified. Is there a number that divides both?", "値は合っているよ。でも約分できるかな？") };
+    }
+    // よくある間違い
+    if (p.kind === "fop" || p.kind === "mop") {
+      var A = p.kind === "mop" ? [p.A[1], p.A[2]] : p.A, B = p.kind === "mop" ? [p.B[1], p.B[2]] : p.B;
+      var sg = p.op === "+" ? 1 : -1, L = lcm(A[1], B[1]);
+      var fn = mixed ? n : vn, fm = m;
+      if (p.kind === "mop" && p.op === "−" && p.tag === "borrow") {
+        var sw = p.A[0] - p.B[0], sf = red(B[0] * L / B[1] - A[0] * L / A[1], L);
+        if (w === sw && n * sf[1] === m * sf[0]) return { status: "wrong", code: "swapped", hint: H("The first fraction is smaller than the second, so you can’t take it away directly. Borrow 1 whole first.", "ひかれる方の分数が小さいね。そのままは引けないので、整数から1をかりてこよう。") };
+      }
+      if (p.kind === "mop" && mixed && n * T[1] === (T[0] % T[1]) * m && w !== a.w) return { status: "wrong", code: "wholes", hint: H("The fraction part is right — check the whole number" + (p.tag === "carry" ? " (did you carry 1?)" : p.tag === "borrow" ? " (did you take away the 1 you borrowed?)" : "") + ".", "分数の部分は合っているよ。整数の部分を見直そう" + (p.tag === "carry" ? "（くり上げた1を足した？）" : p.tag === "borrow" ? "（かりた1をひいた？）" : "") + "。") };
+      var added = fm === A[1] + B[1] && (p.op === "+" || fn === Math.abs(A[0] + sg * B[0]));
+      if (added || (p.op === "−" && fm === Math.abs(A[1] - B[1]) && fm > 0)) return { status: "wrong", code: "add-across", hint: H("It looks like you " + (added ? "added" : "subtracted") + " the bottom numbers. Make the bottoms the same first — then only the tops change.", "分母どうしを" + (added ? "足" : "引") + "したかな？ まず分母をそろえて、計算するのは分子だけだよ。") };
+      if (fm === L && (fn === A[0] + sg * B[0] || fn === Math.abs(A[0] + sg * B[0]))) return { status: "wrong", code: "tops-not-changed", hint: H("Good common denominator! When the bottom changes, the top must change by the same ×.", "共通の分母はいいね！ 分母を何倍かしたら、分子も同じだけかけよう。") };
+      return { status: "wrong", code: "other", hint: H("Find a common multiple of " + A[1] + " and " + B[1] + ", change both fractions, then " + (p.op === "+" ? "add" : "subtract") + " the tops.", A[1] + " と " + B[1] + " の公倍数で分母をそろえて、分子だけ計算しよう。") };
+    }
+    if (p.dir === "toImp") {
+      if (n === p.W + p.A) return { status: "wrong", code: "added-whole", hint: H("Each whole is " + p.D + "/" + p.D + ". How many " + p.D + "ths are in " + p.W + " wholes?", "1は " + p.D + "/" + p.D + " だよ。" + p.W + " は " + p.D + " 分のいくつかな？") };
+      if (n === p.W * p.D) return { status: "wrong", code: "forgot-top", hint: H("You turned the wholes into " + p.D + "ths — now add the top of the fraction part too.", "整数の部分は直せたね。分数の部分の分子も足そう。") };
+      return { status: "wrong", code: "other", hint: H("Multiply the whole number by the bottom, then add the top.", "整数 × 分母 ＋ 分子 だよ。") };
+    }
+    // toMixed
+    if (m === p.D && n < m && w !== a.w) return { status: "wrong", code: "wholes", hint: H("How many times does " + p.D + " go into " + p.N + "?", p.N + " の中に " + p.D + " はいくつ入るかな？") };
+    return { status: "wrong", code: "other", hint: H("Divide the top by the bottom: the answer is the wholes, the remainder is the new top.", "分子 ÷ 分母：商が整数、余りが新しい分子だよ。") };
+  }
+
   /* ── 型の一覧（id は変えない） ── */
   var TYPES = {
     "mul-4by2":       { en: "4-digit × 2-digit", ja: "4桁×2桁", make: mulMake("mul-4by2", false), check: mulCheck },
@@ -185,7 +346,14 @@
     "frac-simplify":  { en: "Simplifying fractions", ja: "約分", make: simpMake("frac-simplify", [2, 3, 5, 7]), check: simpCheck },
     "frac-simplify-big": { en: "Simplifying fractions (more than one step)", ja: "約分（何回か割る）", make: simpMake("frac-simplify-big", [4, 6, 8, 9, 10, 12]), check: simpCheck },
     "frac-equiv-up":  { en: "Equivalent fractions (multiply)", ja: "同値分数（かける）", make: equivMake("frac-equiv-up", "up"), check: equivCheck, tags: ["find-num", "find-den"] },
-    "frac-equiv-down": { en: "Equivalent fractions (divide)", ja: "同値分数（割る）", make: equivMake("frac-equiv-down", "down"), check: equivCheck, tags: ["find-num", "find-den"] }
+    "frac-equiv-down": { en: "Equivalent fractions (divide)", ja: "同値分数（割る）", make: equivMake("frac-equiv-down", "down"), check: equivCheck, tags: ["find-num", "find-den"] },
+    "frac-addsub-related": { en: "Add & subtract (one bottom is a multiple of the other)", ja: "分数のたし算・ひき算（一方の分母にそろえる）", make: fopMake("frac-addsub-related", true), check: wcheck, tags: ["add", "sub"] },
+    "frac-addsub-unlike": { en: "Add & subtract (find a common denominator)", ja: "分数のたし算・ひき算（公倍数でそろえる）", make: fopMake("frac-addsub-unlike", false), check: wcheck, tags: ["add", "sub"] },
+    "frac-add-over-one": { en: "Adding fractions to more than 1", ja: "答えが1を超えるたし算（帯分数で）", make: fopOverMake("frac-add-over-one"), check: wcheck },
+    "frac-to-mixed":    { en: "Improper fraction → mixed number", ja: "仮分数 → 帯分数", make: convMake("frac-to-mixed", "toMixed"), check: wcheck },
+    "mixed-to-improper": { en: "Mixed number → improper fraction", ja: "帯分数 → 仮分数", make: convMake("mixed-to-improper", "toImp"), check: wcheck },
+    "mixed-add":        { en: "Adding mixed numbers", ja: "帯分数のたし算", make: mopMake("mixed-add", "+"), check: wcheck, tags: ["plain", "carry"] },
+    "mixed-sub":        { en: "Subtracting mixed numbers", ja: "帯分数のひき算", make: mopMake("mixed-sub", "−"), check: wcheck, tags: ["plain", "borrow"] }
   };
 
   var G = { TYPES: TYPES, gcd: gcd, fmt: fmt, num: num, divSteps: divSteps };

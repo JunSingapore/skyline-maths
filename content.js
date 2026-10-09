@@ -7,14 +7,32 @@
  *  - mix: 1回（Start）の配分。単元 id と問題数。short は合計8問、long は合計14問
  */
 window.MATH_CONTENT = {
-  version: "2026-10-03",
+  version: "2026-10-09",
   appName: "Skyline Maths",
 
   units: [
     {
-      id: "m-longdiv",
+      id: "m-frac-addsub",
       status: "next",
-      when: "This week · 5 Oct",
+      when: "After half term · 19 Oct",
+      title: "Adding & subtracting fractions",
+      ja: "分母の違う分数のたし算・ひき算",
+      types: ["frac-addsub-related", "frac-addsub-unlike", "frac-add-over-one"],
+      source: "Michaelmas W8 ニュースレター（10/9）：休み明けは分母の違う分数のたし算・ひき算（公倍数で共通分母・約分）"
+    },
+    {
+      id: "m-mixed",
+      status: "next",
+      when: "After half term · 19 Oct",
+      title: "Mixed numbers",
+      ja: "仮分数・帯分数とその計算",
+      types: ["frac-to-mixed", "mixed-to-improper", "mixed-add", "mixed-sub"],
+      source: "Michaelmas W8 ニュースレター（10/9）：仮分数・帯分数を含む計算、多段階の文章題"
+    },
+    {
+      id: "m-longdiv",
+      status: "review",
+      when: "Week of 5 Oct",
       title: "Long division",
       ja: "長いわり算（4桁÷2桁・余りあり）",
       types: ["div-4by2-exact", "div-4by2-rem", "div-3by2-rem"],
@@ -22,8 +40,8 @@ window.MATH_CONTENT = {
     },
     {
       id: "m-fractions",
-      status: "next",
-      when: "This week · 5 Oct",
+      status: "review",
+      when: "Week of 5 Oct",
       title: "Simplifying & equivalent fractions",
       ja: "約分・同値分数",
       types: ["frac-simplify", "frac-simplify-big", "frac-equiv-up", "frac-equiv-down"],
@@ -41,7 +59,7 @@ window.MATH_CONTENT = {
   ],
 
   mix: {
-    short: [["m-longdiv", 3], ["m-mult", 2], ["m-fractions", 3]],
-    long: [["m-longdiv", 5], ["m-mult", 4], ["m-fractions", 5]]
+    short: [["m-frac-addsub", 3], ["m-mixed", 2], ["m-fractions", 2], ["m-longdiv", 1]],
+    long: [["m-frac-addsub", 5], ["m-mixed", 4], ["m-fractions", 2], ["m-longdiv", 2], ["m-mult", 1]]
   }
 };
