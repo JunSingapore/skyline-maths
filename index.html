@@ -202,6 +202,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 .tally span { font-size: 16px; color: var(--muted); }
 /* ── maths problem ── */
 .prob { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 28px 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
+.story { margin: 0 0 18px; font-size: 21px; line-height: 1.5; text-align: left; }
 .eq { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; font-family: var(--body); font-weight: 700; font-size: 40px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .eq .op { color: var(--muted); }
 .eq .lbl { font-family: var(--body); font-size: 20px; color: var(--muted); font-weight: 700; }
@@ -543,6 +544,12 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       else left = p.dir === "toMixed" ? fracHTML(p.N, p.D) : mixedHTML([p.W, p.A, p.D]);
       return '<div class="eq">' + left + '<span class="op">=</span>' + outH + "</div>";
     }
+    if (p.kind === "fmd" || p.kind === "fword") {
+      var outF = p.out === "mixed" ? '<span class="mixed">' + boxHTML(p, "w") + fracHTML(boxHTML(p, "n"), boxHTML(p, "m")) + "</span>" : fracHTML(boxHTML(p, "n"), boxHTML(p, "m"));
+      function opnd(f) { return f[1] === 1 ? "<span>" + f[0] + "</span>" : fracHTML(f[0], f[1]); }
+      if (p.kind === "fword") return '<p class="story">' + esc(p.story) + '</p><div class="eq">' + outF + '<span class="lbl">' + esc(p.unit) + "</span></div>";
+      return '<div class="eq">' + opnd(p.A) + '<span class="op">' + p.op + "</span>" + opnd(p.B) + '<span class="op">=</span>' + outF + "</div>";
+    }
     // equiv
     var right = p.missing === 0 ? fracHTML(boxHTML(p, "x"), p.R[1]) : fracHTML(p.R[0], boxHTML(p, "x"));
     return '<div class="eq">' + fracHTML(p.L[0], p.L[1]) + '<span class="op">=</span>' + right + "</div>";
@@ -552,7 +559,8 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     if (p.kind === "div") return "Divide. Write the remainder too (0 if it divides exactly).";
     if (p.kind === "simp") return "Simplify fully.";
     if (p.kind === "conv") return p.dir === "toMixed" ? "Write as a mixed number, simplified." : "Write as an improper fraction with the same bottom number.";
-    if (p.kind === "fop" || p.kind === "mop") return p.out === "mixed" ? "Work it out. Give a mixed number, simplified." : "Work it out. Simplify your answer.";
+    if (p.kind === "fword") return "Read carefully. Simplify your answer (a mixed number if it is more than 1).";
+    if (p.kind === "fop" || p.kind === "mop" || p.kind === "fmd") return p.out === "mixed" ? "Work it out. Give a mixed number, simplified." : "Work it out. Simplify your answer.";
     return "Find the missing number.";
   }
 
@@ -562,7 +570,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var h = '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">';
     h += '<p class="eyebrow">' + esc(ty.en) + esc(tag) + "</p>";
     h += '<div class="prob"><p class="muted">' + esc(askText(p)) + "</p>" + eqHTML(p);
-    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop") h += '<p class="paper">Use paper for the working.</p>';
+    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword") h += '<p class="paper">Use paper for the working.</p>';
     h += "</div>";
     if (ui.done) h += feedbackHTML(p);
     else {

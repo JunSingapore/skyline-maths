@@ -312,6 +312,7 @@
       return { status: "wrong", code: "not-simplest", hint: p.kind === "conv" ? H("Right value — keep the same bottom number as the mixed number.", "値は合っているよ。分母は帯分数と同じにしよう。") : H("Right value — but it can be simplified. Is there a number that divides both?", "値は合っているよ。でも約分できるかな？") };
     }
     // よくある間違い
+    if (p.kind === "fmd" || p.kind === "fword") return fmdWrong(p, vn, m);
     if (p.kind === "fop" || p.kind === "mop") {
       var A = p.kind === "mop" ? [p.A[1], p.A[2]] : p.A, B = p.kind === "mop" ? [p.B[1], p.B[2]] : p.B;
       var sg = p.op === "+" ? 1 : -1, L = lcm(A[1], B[1]);
@@ -336,6 +337,113 @@
     return { status: "wrong", code: "other", hint: H("Divide the top by the bottom: the answer is the wholes, the remainder is the new top.", "分子 ÷ 分母：商が整数、余りが新しい分子だよ。") };
   }
 
+  /* ── 分数のかけ算・わり算と文章題（W9 追加） ── */
+  // 演算の値。A, B は [分子, 分母]（整数は [k, 1]）。結果は約分前の [分子, 分母]
+  function fmdValue(A, B, op) {
+    if (op === "×") return [A[0] * B[0], A[1] * B[1]];
+    if (op === "÷") return [A[0] * B[1], A[1] * B[0]];
+    return [A[0] * B[1] + (op === "+" ? 1 : -1) * B[0] * A[1], A[1] * B[1]];
+  }
+  function opS(f) { return f[1] === 1 ? String(f[0]) : frS(f); }
+  // 結果 [分子, 分母] → 答え（約分し、1を超えたら帯分数）
+  function fmdAnswer(v) {
+    var r = red(v[0], v[1]);
+    if (r[0] > r[1]) { var mx = toMixed(r[0], r[1]); return { out: "mixed", fields: ["w", "n", "m"], answer: { w: mx[0], n: mx[1], m: mx[2] }, r: r }; }
+    return { out: "frac", fields: ["n", "m"], answer: { n: r[0], m: r[1] }, r: r };
+  }
+  function fmdSteps(A, B, op) {
+    var v = fmdValue(A, B, op), r = red(v[0], v[1]), s = [];
+    if (op === "×") {
+      if (B[1] === 1) s.push(B[0] + " is the same as " + B[0] + "/1.");
+      s.push("Tops: " + A[0] + " × " + B[0] + " = " + v[0] + ".  Bottoms: " + A[1] + " × " + B[1] + " = " + v[1] + ".  → " + frS(v));
+    } else if (op === "÷") {
+      var flip = [B[1], B[0]];
+      s.push("Keep " + frS(A) + ", change ÷ to ×, flip " + opS(B) + " to " + frS(flip) + ".");
+      s.push(frS(A) + " × " + frS(flip) + " = " + v[0] + "/" + v[1]);
+    } else {
+      s = commonSteps(A, B, op);
+      var L = lcm(A[1], B[1]), f = fopValue(A, B, op);
+      s.push((A[0] * L / A[1]) + "/" + L + " " + op + " " + (B[0] * L / B[1]) + "/" + L + " = " + f.n + "/" + L);
+      v = [f.n, L]; r = red(f.n, L);
+    }
+    if (r[1] !== v[1]) s.push("Simplify: " + frS(v) + " = " + frS(r));
+    if (r[0] > r[1]) { var mx = toMixed(r[0], r[1]); s.push(frS(r) + " is more than 1:  " + r[0] + " ÷ " + r[1] + " = " + mx[0] + " remainder " + mx[1] + "  →  " + mixS(mx[0], mx[1], mx[2])); }
+    return s;
+  }
+  function properFrac(dmin, dmax) { var d = rnd(dmin, dmax); return [coprimeTop(d), d]; }
+  // shape: "ff"＝分数×分数／"fw"＝分数×整数（答えは帯分数）。"÷" の "ff" は答えが真分数になる組
+  function fmdMake(id, op, shape) {
+    return function () {
+      for (;;) {
+        var A = properFrac(2, 10), B = shape === "fw" ? [rnd(2, 9), 1] : properFrac(2, 10);
+        if (op === "÷" && shape === "fw" && B[0] > 6) continue;
+        var v = fmdValue(A, B, op), r = red(v[0], v[1]);
+        if (r[1] === 1) continue;                                   // 割り切れて整数になるものは出さない
+        if (op === "×" && shape === "fw" && r[0] < r[1]) continue;  // 整数をかける型は 1 を超えるものだけ
+        if (op === "÷" && shape === "ff" && (A[0] * B[1] >= B[0] * A[1] || A[1] === B[1])) continue;
+        if (op === "×" && shape === "ff" && A[1] === B[1] && A[0] === B[0]) continue;
+        var ans = fmdAnswer(v);
+        return { type: id, tag: null, kind: "fmd", A: A, B: B, op: op, out: ans.out,
+          text: opS(A) + " " + op + " " + opS(B), fields: ans.fields, answer: ans.answer, steps: fmdSteps(A, B, op) };
+      }
+    };
+  }
+  // 文章題。名前は入れない。tag＝使う計算
+  var STORIES = {
+    div: function () { var A = properFrac(2, 9), k = rnd(2, 5); return { A: A, B: [k, 1], op: "÷", unit: "m",
+      story: "A ribbon is " + frS(A) + " m long. It is cut into " + k + " equal pieces. How long is each piece?" }; },
+    mul: function () { var A = properFrac(2, 8), k = rnd(3, 9); return { A: A, B: [k, 1], op: "×", unit: "cups",
+      story: "One cake needs " + frS(A) + " of a cup of sugar. How many cups of sugar are needed for " + k + " cakes?" }; },
+    of: function () { var A = properFrac(2, 6), B = properFrac(2, 6); return { A: A, B: B, op: "×", unit: "of the garden",
+      story: frS(A) + " of a garden is grass. Flowers grow on " + frS(B) + " of the grass. What fraction of the whole garden has flowers?" }; },
+    add: function () { var A = properFrac(2, 8), B = properFrac(2, 8); return { A: A, B: B, op: "+", unit: "km",
+      story: "A walker goes " + frS(A) + " km in the morning and " + frS(B) + " km in the afternoon. How far is that altogether?" }; }
+  };
+  function wordMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["div", "mul", "of", "add"]);
+      for (;;) {
+        var st = STORIES[tag](), v = fmdValue(st.A, st.B, st.op), r = red(v[0], v[1]);
+        if (r[1] === 1 || r[0] <= 0) continue;
+        if ((tag === "mul" || tag === "add") && r[0] < r[1]) continue;   // 1 を超えて帯分数で答える
+        if (st.op === "+" && st.A[1] === st.B[1]) continue;
+        var ans = fmdAnswer(v), steps = ["Calculation: " + opS(st.A) + " " + st.op + " " + opS(st.B)].concat(fmdSteps(st.A, st.B, st.op));
+        return { type: id, tag: tag, kind: "fword", A: st.A, B: st.B, op: st.op, out: ans.out, unit: st.unit, story: st.story,
+          text: st.story, fields: ans.fields, answer: ans.answer, steps: steps };
+      }
+    };
+  }
+  // かけ算・わり算・文章題のよくある間違い（値が正解と違うとき）
+  function fmdWrong(p, vn, m) {
+    var A = p.A, B = p.B;
+    function is(f) { return f[1] !== 0 && vn * f[1] === f[0] * m; }
+    var word = p.kind === "fword";
+    if (p.op === "+") {
+      if (is([A[0] + B[0], A[1] + B[1]])) return { status: "wrong", code: "add-across", hint: H("It looks like you added the bottom numbers. Make the bottoms the same first — then only the tops change.", "分母どうしを足したかな？ まず分母をそろえて、計算するのは分子だけだよ。") };
+      return { status: "wrong", code: "other", hint: H("Find a common multiple of " + A[1] + " and " + B[1] + ", change both fractions, then add the tops.", A[1] + " と " + B[1] + " の公倍数で分母をそろえて、分子だけ足そう。") };
+    }
+    if (word && p.op === "×" && B[1] === 1 && is([A[0], A[1] * B[0]])) return { status: "wrong", code: "wrong-op", hint: H("Each cake needs the same amount, and there are more cakes — should the total be bigger or smaller?", "ケーキが増えると、砂糖は増える？減る？ どの計算か考えてみよう。") };
+    if (word && p.op === "÷" && is([A[0] * B[0], A[1]])) return { status: "wrong", code: "wrong-op", hint: H("The pieces are shorter than the whole ribbon — should your answer be bigger or smaller?", "1本ずつはもとのリボンより短いはずだね。どの計算か考えてみよう。") };
+    if (p.op === "×") {
+      if (B[1] === 1) {
+        if (is(A)) return { status: "wrong", code: "both-times", hint: H("Did you multiply the bottom by " + B[0] + " too? Think of " + B[0] + " as " + B[0] + "/1.", "分母にも " + B[0] + " をかけたかな？ " + B[0] + " は " + B[0] + "/1 と考えよう。") };
+        return { status: "wrong", code: "other", hint: H("Think of " + B[0] + " as " + B[0] + "/1. Multiply the tops, multiply the bottoms, then simplify.", B[0] + " を " + B[0] + "/1 と考えて、分子どうし・分母どうしをかけ、最後に約分しよう。") };
+      }
+      if (is([A[0] + B[0], A[1] + B[1]])) return { status: "wrong", code: "added", hint: H("It looks like you added. For ×, multiply the tops together and the bottoms together.", "足し算をしたかな？ かけ算は、分子どうし・分母どうしをかけるよ。") };
+      var L = lcm(A[1], B[1]);
+      if (A[1] !== B[1] && is([(A[0] * L / A[1]) * (B[0] * L / B[1]), L])) return { status: "wrong", code: "common-den", hint: H("No common denominator is needed for ×. Multiply the tops and the bottoms as they are.", "かけ算では分母をそろえなくていいよ。そのまま分子どうし・分母どうしをかけよう。") };
+      return { status: "wrong", code: "other", hint: H("Top × top, bottom × bottom — then simplify.", "分子 × 分子、分母 × 分母。そのあと約分できるかな？") };
+    }
+    // ÷
+    if (B[1] === 1) {
+      if (is([A[0] * B[0], A[1]])) return { status: "wrong", code: "multiplied", hint: H("Dividing by " + B[0] + " should make it smaller. ÷ " + B[0] + " is the same as × 1/" + B[0] + ".", B[0] + " で割ると小さくなるはずだね。÷ " + B[0] + " は × 1/" + B[0] + " と同じだよ。") };
+      return { status: "wrong", code: "other", hint: H("÷ " + B[0] + " is the same as × 1/" + B[0] + ". Multiply the bottom number by " + B[0] + ".", "÷ " + B[0] + " は × 1/" + B[0] + " と同じ。分母に " + B[0] + " をかけてみよう。") };
+    }
+    if (is([A[0] * B[0], A[1] * B[1]])) return { status: "wrong", code: "no-flip", hint: H("It looks like you multiplied straight across. For ÷, flip the second fraction first.", "そのままかけたかな？ わり算は、2つ目の分数をひっくり返してからかけるよ。") };
+    if (is([A[1] * B[0], A[0] * B[1]])) return { status: "wrong", code: "flip-first", hint: H("Keep the FIRST fraction as it is — flip only the second one.", "ひっくり返すのは2つ目の分数だけ。1つ目はそのままだよ。") };
+    return { status: "wrong", code: "other", hint: H("Keep the first fraction, change ÷ to ×, flip the second, then simplify.", "1つ目はそのまま、÷ を × に、2つ目をひっくり返す。最後に約分しよう。") };
+  }
+
   /* ── 型の一覧（id は変えない） ── */
   var TYPES = {
     "mul-4by2":       { en: "4-digit × 2-digit", ja: "4桁×2桁", make: mulMake("mul-4by2", false), check: mulCheck },
@@ -353,7 +461,12 @@
     "frac-to-mixed":    { en: "Improper fraction → mixed number", ja: "仮分数 → 帯分数", make: convMake("frac-to-mixed", "toMixed"), check: wcheck },
     "mixed-to-improper": { en: "Mixed number → improper fraction", ja: "帯分数 → 仮分数", make: convMake("mixed-to-improper", "toImp"), check: wcheck },
     "mixed-add":        { en: "Adding mixed numbers", ja: "帯分数のたし算", make: mopMake("mixed-add", "+"), check: wcheck, tags: ["plain", "carry"] },
-    "mixed-sub":        { en: "Subtracting mixed numbers", ja: "帯分数のひき算", make: mopMake("mixed-sub", "−"), check: wcheck, tags: ["plain", "borrow"] }
+    "mixed-sub":        { en: "Subtracting mixed numbers", ja: "帯分数のひき算", make: mopMake("mixed-sub", "−"), check: wcheck, tags: ["plain", "borrow"] },
+    "frac-mul":         { en: "Multiplying fractions", ja: "分数 × 分数", make: fmdMake("frac-mul", "×", "ff"), check: wcheck },
+    "frac-mul-whole":   { en: "Fraction × whole number", ja: "分数 × 整数（帯分数で）", make: fmdMake("frac-mul-whole", "×", "fw"), check: wcheck },
+    "frac-div-whole":   { en: "Fraction ÷ whole number", ja: "分数 ÷ 整数", make: fmdMake("frac-div-whole", "÷", "fw"), check: wcheck },
+    "frac-div":         { en: "Dividing by a fraction", ja: "分数 ÷ 分数（ひっくり返してかける）", make: fmdMake("frac-div", "÷", "ff"), check: wcheck },
+    "frac-word":        { en: "Fraction word problems", ja: "分数の文章題", make: wordMake("frac-word"), check: wcheck, tags: ["div", "mul", "of", "add"] }
   };
 
   var G = { TYPES: TYPES, gcd: gcd, fmt: fmt, num: num, divSteps: divSteps };

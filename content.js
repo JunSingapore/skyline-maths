@@ -7,13 +7,31 @@
  *  - mix: 1回（Start）の配分。単元 id と問題数。short は合計8問、long は合計14問
  */
 window.MATH_CONTENT = {
-  version: "2026-10-09",
+  version: "2026-10-29",
   appName: "Skyline Maths",
 
   units: [
     {
-      id: "m-frac-addsub",
+      id: "m-frac-muldiv",
       status: "next",
+      when: "Week of 26 Oct",
+      title: "Multiplying & dividing fractions",
+      ja: "分数のかけ算・わり算（整数との計算・ひっくり返してかける）",
+      types: ["frac-mul", "frac-mul-whole", "frac-div-whole", "frac-div"],
+      source: "Michaelmas W9 ニュースレター（10/23・/news/13125）：約分・同値分数を終え、分数の四則演算を使った式（仮分数・帯分数を含む）へ"
+    },
+    {
+      id: "m-frac-word",
+      status: "next",
+      when: "Week of 26 Oct",
+      title: "Fraction word problems",
+      ja: "分数の文章題（たし算・かけ算・わり算・〜の〜）",
+      types: ["frac-word"],
+      source: "Michaelmas W9 ニュースレター（10/23・/news/13125）：分数の文章題・チャレンジ問題"
+    },
+    {
+      id: "m-frac-addsub",
+      status: "review",
       when: "After half term · 19 Oct",
       title: "Adding & subtracting fractions",
       ja: "分母の違う分数のたし算・ひき算",
@@ -22,7 +40,7 @@ window.MATH_CONTENT = {
     },
     {
       id: "m-mixed",
-      status: "next",
+      status: "review",
       when: "After half term · 19 Oct",
       title: "Mixed numbers",
       ja: "仮分数・帯分数とその計算",
@@ -59,7 +77,7 @@ window.MATH_CONTENT = {
   ],
 
   mix: {
-    short: [["m-frac-addsub", 3], ["m-mixed", 2], ["m-fractions", 2], ["m-longdiv", 1]],
-    long: [["m-frac-addsub", 5], ["m-mixed", 4], ["m-fractions", 2], ["m-longdiv", 2], ["m-mult", 1]]
+    short: [["m-frac-muldiv", 3], ["m-frac-word", 2], ["m-frac-addsub", 1], ["m-mixed", 1], ["m-fractions", 1]],
+    long: [["m-frac-muldiv", 5], ["m-frac-word", 3], ["m-frac-addsub", 2], ["m-mixed", 2], ["m-fractions", 1], ["m-longdiv", 1]]
   }
 };
