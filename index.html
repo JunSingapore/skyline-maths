@@ -562,6 +562,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     if (p.kind === "meas") {
       var ansH = (p.pre ? '<span class="lbl">' + esc(p.unit) + "</span>" : "") + boxHTML(p, "x", true) + (p.pre ? "" : '<span class="lbl">' + esc(p.unit) + "</span>");
       if (p.story) return '<p class="story">' + esc(p.story) + '</p><div class="eq">' + ansH + "</div>";
+      if (p.conv) return '<div class="eq"><span>' + esc(G.fmt(p.conv.v)) + '</span><span class="lbl">' + esc(p.conv.from) + '</span><span class="op">=</span>' + ansH + "</div>";
       var what = { perimeter: "Perimeter", area: "Area", volume: "Volume" }[p.ask];
       return figHTML(p) + '<div class="eq"><span class="lbl">' + what + ' =</span>' + ansH + "</div>";
     }
@@ -592,7 +593,12 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       w += o;
     } else if (p.shape === "tri") {
       var m = sc([d.b, d.h * 1.3]); w = m(d.b); h = Math.min(m(d.h), Hm - 20);
-      if (!d.s) body = '<path d="M0 0 V' + h + " H" + w + ' Z" class="shape"/><path d="M0 ' + (h - 12) + " h12 v12" + '" class="tick"/>' + t(w / 2, h + 26, L(d.b)) + t(-10, h / 2 + 6, L(d.h), "end");
+      if (p.tag === "obtuse") { var run = w * Math.sqrt(d.s * d.s - d.h * d.h) / d.b, ex = w + run;
+        body = '<path d="M' + ex + " 0 L0 " + h + " H" + w + ' Z" class="shape"/>' +
+          '<line x1="' + w + '" y1="' + h + '" x2="' + ex + '" y2="' + h + '" class="dash"/><line x1="' + ex + '" y1="0" x2="' + ex + '" y2="' + h + '" class="dash"/><path d="M' + (ex - 12) + " " + h + " v-12 h12" + '" class="tick"/>' +
+          t(w / 2, h + 26, L(d.b)) + t(ex + 10, h / 2 + 6, L(d.h), "start") + t(w + run / 2 - 12, h * 0.55, L(d.s), "end");
+        w = ex;
+      } else if (!d.s) body = '<path d="M0 0 V' + h + " H" + w + ' Z" class="shape"/><path d="M0 ' + (h - 12) + " h12 v12" + '" class="tick"/>' + t(w / 2, h + 26, L(d.b)) + t(-10, h / 2 + 6, L(d.h), "end");
       else { w = Math.max(w, 210); var ax = w * (1 - Math.sqrt(d.s * d.s - d.h * d.h) / d.b);   // 右の辺の水平のずれを数字と合わせる   // 高さの文字が斜めの辺にかからない幅
         body = '<path d="M' + ax + " 0 L" + w + " " + h + " H0 Z" + '" class="shape"/><line x1="' + ax + '" y1="0" x2="' + ax + '" y2="' + h + '" class="dash"/><path d="M' + ax + " " + (h - 12) + " h12 v12" + '" class="tick"/>' +
           t(w / 2, h + 26, L(d.b)) + (ax > w / 2 ? t(ax - 10, h * 0.62, L(d.h), "end") : t(ax + 10, h * 0.62, L(d.h), "start")) + t((ax + w) / 2 + 14, h / 2, L(d.s), "start"); }
@@ -609,6 +615,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     return '<figure class="fig"><svg viewBox="' + vb + '" role="img" aria-label="Shape with its measurements">' + body + '</svg><figcaption>Not drawn to scale</figcaption></figure>';
   }
   function askText(p) {
+    if (p.kind === "meas" && p.conv) return "Convert. Is the new unit bigger or smaller?";
     if (p.kind === "meas") return p.story ? "Read carefully. Use paper for the working." : p.ask === "perimeter" ? "Find the perimeter." : p.ask === "volume" ? "Find the volume." : "Find the area.";
     if (p.kind === "mul") return "Work it out.";
     if (p.kind === "div") return "Divide. Write the remainder too (0 if it divides exactly).";
@@ -625,7 +632,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var h = '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">';
     h += '<p class="eyebrow">' + esc(ty.en) + esc(tag) + "</p>";
     h += '<div class="prob"><p class="muted">' + esc(askText(p)) + "</p>" + eqHTML(p);
-    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword" || (p.kind === "meas" && !p.story)) h += '<p class="paper">Use paper for the working.</p>';
+    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword" || (p.kind === "meas" && p.shape)) h += '<p class="paper">Use paper for the working.</p>';
     h += "</div>";
     if (ui.done) h += feedbackHTML(p);
     else {

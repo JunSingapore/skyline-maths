@@ -21,6 +21,15 @@ window.MATH_CONTENT = {
       source: "Michaelmas W10 ニュースレター（10/30・/news/13302）：分数の四則を続けつつ測定へ。perimeter, area, volume, formulae, parallelograms, triangles, cuboids, cm³, m³"
     },
     {
+      id: "m-measure-units",
+      status: "next",
+      when: "Week of 2 Nov",
+      title: "Converting units",
+      ja: "単位の換算（長さ・面積 cm²/m²/mm²・体積 cm³/m³/mm³・リットル）",
+      types: ["meas-convert"],
+      source: "Michaelmas W10 ニュースレター（10/30・/news/13302）の Key Vocabulary（cm³, m³, mm³, km³）＋英国 Y6 の測定（単位の換算、体積を他の単位へ広げる）"
+    },
+    {
       id: "m-measure-word",
       status: "next",
       when: "Week of 2 Nov",
@@ -95,7 +104,7 @@ window.MATH_CONTENT = {
   ],
 
   mix: {
-    short: [["m-measure", 3], ["m-measure-word", 1], ["m-frac-muldiv", 2], ["m-frac-word", 1], ["m-mixed", 1]],
-    long: [["m-measure", 6], ["m-measure-word", 2], ["m-frac-muldiv", 2], ["m-frac-word", 2], ["m-frac-addsub", 1], ["m-mixed", 1]]
+    short: [["m-measure", 3], ["m-measure-units", 1], ["m-measure-word", 1], ["m-frac-muldiv", 2], ["m-mixed", 1]],
+    long: [["m-measure", 5], ["m-measure-units", 2], ["m-measure-word", 2], ["m-frac-muldiv", 2], ["m-frac-word", 2], ["m-mixed", 1]]
   }
 };

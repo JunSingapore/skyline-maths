@@ -446,7 +446,7 @@
 
   /* ── 測定：周の長さ・面積・体積（W10 追加） ── */
   // 答えは整数1つ（field x）。fig＝図のデータ（index.html が SVG で描く・縮尺どおりではない）
-  var U2 = { cm: "cm²", m: "m²" }, U3 = { cm: "cm³", m: "m³" };
+  var U2 = { cm: "cm²", m: "m²" }, U3 = { cm: "cm³", m: "m³", mm: "mm³" };
   function measP(id, tag, shape, d, unit, ans, steps, extra) {
     var p = { type: id, tag: tag, kind: "meas", shape: shape, d: d, unit: unit, fields: ["x"], answer: { x: ans }, steps: steps };
     for (var k in extra || {}) p[k] = extra[k];
@@ -459,7 +459,7 @@
     if (p.shape === "rect") return q + " of a rectangle " + d.w + " " + u + " × " + d.h + " " + u;
     if (p.shape === "lshape") return q + " of an L-shape (" + d.W + " × " + d.H + " with a " + d.a + " × " + d.b + " corner cut out)";
     if (p.shape === "para") return "Area of a parallelogram: base " + d.b + " cm, height " + d.h + " cm, slanted side " + d.s + " cm";
-    if (p.shape === "tri") return "Area of a triangle: base " + d.b + " cm, height " + d.h + " cm" + (d.s ? ", slanted side " + d.s + " cm" : "");
+    if (p.shape === "tri") return "Area of a triangle: base " + d.b + " cm, height " + d.h + " cm" + (d.s ? ", slanted side " + d.s + " cm" : "") + (p.tag === "obtuse" ? " (height outside)" : "");
     return "Volume of a cuboid " + d.l + " × " + d.w + " × " + d.h + " " + u;
   }
   // 周の長さ：rect＝長方形／lshape＝L字（2辺が書いていない）
@@ -513,31 +513,52 @@
         b + " × " + h + " = " + b * h + " cm²"], { ask: "area" });
     };
   }
-  // 三角形：right＝直角三角形／slant＝高さが点線（斜めの辺も書いてある）
+  // 三角形：right＝直角三角形／slant＝高さが点線（斜めの辺も書いてある）／obtuse＝鈍角で高さが外（底辺をのばした先）
   function areaTriMake(id) {
     return function (prefTag) {
-      var tag = prefTag || pick(["right", "slant"]);
+      var tag = prefTag || pick(["right", "slant", "obtuse"]);
       for (;;) {
         var b = rnd(4, 20), h = rnd(3, 16);
         if ((b * h) % 2) continue;
         var d = { b: b, h: h };
-        if (tag === "slant") { d.s = slantSide(b, h); if (d.s == null) continue; }
+        if (tag !== "right") { d.s = slantSide(b, h); if (d.s == null) continue; }
         return measP(id, tag, "tri", d, "cm²", b * h / 2, [
-          "Area of a triangle = base × height ÷ 2 (it is half of a rectangle).",
+          "Area of a triangle = base × height ÷ 2 (it is half of a rectangle)." + (tag === "obtuse" ? " The height can be outside the triangle — it is still the straight-up distance to the top." : ""),
           b + " × " + h + " = " + b * h + ",  " + b * h + " ÷ 2 = " + b * h / 2 + " cm²"], { ask: "area" });
       }
     };
   }
   function volMake(id) {
     return function (prefTag) {
-      var tag = prefTag || pick(["cm", "m"]);
+      var tag = prefTag || pick(["cm", "m", "mm"]);
       for (;;) {
-        var l = tag === "cm" ? rnd(3, 15) : rnd(2, 9), w = tag === "cm" ? rnd(2, 10) : rnd(2, 8), h = tag === "cm" ? rnd(2, 12) : rnd(2, 6);
+        var l = tag === "cm" ? rnd(3, 15) : tag === "mm" ? rnd(5, 30) : rnd(2, 9), w = tag === "cm" ? rnd(2, 10) : tag === "mm" ? rnd(3, 20) : rnd(2, 8), h = tag === "cm" ? rnd(2, 12) : tag === "mm" ? rnd(2, 10) : rnd(2, 6);
         if (l === w && w === h) continue;
         return measP(id, tag, "cuboid", { l: l, w: w, h: h }, U3[tag], l * w * h, [
           "Volume = length × width × height",
           l + " × " + w + " = " + l * w + ",  " + l * w + " × " + h + " = " + l * w * h + " " + U3[tag]], { ask: "volume", u: tag });
       }
+    };
+  }
+  // 単位の換算（答えは整数）。tag：length＝長さ／area＝面積（cm²・m²・mm²）／volume＝体積（cm³・m³・mm³・litre）
+  // [大きい単位, 小さい単位, 何倍, 1辺あたりの倍（面積・体積の説明用）]
+  var CONV = {
+    length: [["m", "cm", 100], ["km", "m", 1000], ["cm", "mm", 10]],
+    area: [["m²", "cm²", 10000, 100], ["cm²", "mm²", 100, 10]],
+    volume: [["m³", "cm³", 1000000, 100], ["cm³", "mm³", 1000, 10], ["litres", "cm³", 1000]]
+  };
+  function convMeasMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["length", "area", "volume"]), c = pick(CONV[tag]);
+      var down = tag === "length" ? Math.random() < 0.5 : Math.random() < 0.75;   // down＝大きい単位 → 小さい単位（かける）
+      var v = tag === "volume" && c[2] === 1000000 ? rnd(2, 9) : rnd(2, tag === "length" ? 60 : 25);
+      var big = c[0], small = c[1], k = c[2], one = "1 " + big.replace(/^litres$/, "litre") + " = " + fmt(k) + " " + small;
+      var su = small.replace(/[²³]/, ""), bu = big.replace(/[²³]/, "");
+      var why = c[3] ? "  (a 1 " + bu + (tag === "volume" ? " cube" : " square") + " is " + c[3] + " " + su + " × " + c[3] + " " + su + (tag === "volume" ? " × " + c[3] + " " + su : "") + ")" : "";
+      var from = down ? v : v * k, ans = down ? v * k : v;
+      return measP(id, tag, null, { v: from, k: k, side: c[3] || null, down: down }, down ? small : big, ans,
+        [one + why, down ? fmt(v) + " × " + fmt(k) + " = " + fmt(ans) + " " + small : fmt(v * k) + " ÷ " + fmt(k) + " = " + ans + " " + big],
+        { conv: { v: from, from: down ? big : small, to: down ? small : big }, text: fmt(from) + " " + (down ? big : small) + " = ? " + (down ? small : big) });
     };
   }
   // 測定の文章題（PMC 風・名前なし）
@@ -611,6 +632,12 @@
     } else if (p.type === "meas-volume") {
       T_(d.l + d.w + d.h, "added", "For volume, multiply all three lengths.", "体積は3つの長さをかけるよ。");
       [d.l * d.w, d.l * d.h, d.w * d.h].forEach(function (v) { T_(v, "two-dims", "That uses only two lengths (that is an area). Volume needs all three.", "2つの長さだけだと面積になるよ。体積は3つ全部かけよう。"); });
+    } else if (p.type === "meas-convert") {
+      var f = d.down ? function (k) { return d.v * k; } : function (k) { return d.v % k === 0 ? d.v / k : -1; };
+      T_(d.down ? (d.v % d.k === 0 ? d.v / d.k : -1) : d.v * d.k, "wrong-way", "Check the direction: is the new unit bigger or smaller? Should the number get bigger or smaller?", "単位が大きくなる？小さくなる？ 数は増える？減る？ 向きを確かめよう。");
+      if (d.side) { T_(f(d.side), "length-factor", "That uses the length change. For " + (p.tag === "area" ? "area, it happens in 2 directions" : "volume, it happens in 3 directions") + ".", "それは長さの換算だね。" + (p.tag === "area" ? "面積はたて・横の2方向" : "体積はたて・横・高さの3方向") + "に効くよ。");
+        if (p.tag === "volume") T_(f(d.side * d.side), "length-factor", "That is only 2 directions. Volume has 3: length, width and height.", "それは2方向分だね。体積はたて・横・高さの3方向だよ。"); }
+      [10, 100, 1000].forEach(function (k) { if (k !== d.k) T_(f(k), "wrong-factor", "Check how many small units make one big unit.", "大きい単位1つは、小さい単位いくつ分か確かめよう。"); });
     } else if (p.tag === "missing-side") {
       T_(d.A - d.w, "subtracted", "Area is length × width. Which number times " + d.w + " makes the area?", "面積＝たて × 横。" + d.w + " に何をかけると面積になるかな？");
       T_(d.A * d.w, "multiplied", "The other side must be shorter than the area number. Try dividing.", "答えは面積の数より小さいはず。わり算を考えよう。");
@@ -635,15 +662,18 @@
     tri: H("Area of a triangle = base × height ÷ 2.", "三角形の面積 ＝ 底辺 × 高さ ÷ 2。"),
     lshape: H("Split the shape into two rectangles, or take the missing corner away from the big rectangle.", "2つの長方形に分けるか、大きな長方形から欠けた角をひこう。"),
     volume: H("Volume = length × width × height.", "体積 ＝ たて × 横 × 高さ。"),
+    conv: H("How many small units make one big unit? Going to a smaller unit, the number gets bigger.", "大きい単位1つは小さい単位いくつ分かな？ 小さい単位にすると、数は大きくなるよ。"),
     word: H("Read it again. What do you know, and what are you asked to find? Try one step at a time.", "もう一度読もう。分かっていることは？ 聞かれていることは？ 1つずつ進めよう。")
   };
   function measCheck(p, inp) {
     var x = num(inp.x);
     if (x == null) return { status: "incomplete", hint: H("Type your answer in the box.", "答えを入れてね。") };
     if (x === p.answer.x) return { status: "correct" };
+    // 換算の向き違い：小さい単位へ→数は増える／大きい単位へ→数は減る（入力の桁数制限があっても判定できるように値の大小で見る）
+    if (p.conv && (p.d.down ? x <= p.d.v : x >= p.d.v)) return { status: "wrong", code: "wrong-way", hint: H("Check the direction: is the new unit bigger or smaller? Should the number get bigger or smaller?", "単位が大きくなる？小さくなる？ 数は増える？減る？ 向きを確かめよう。") };
     var tr = measTraps(p);
     for (var i = 0; i < tr.length; i++) if (tr[i][0] === x && tr[i][0] !== p.answer.x) return { status: "wrong", code: tr[i][1], hint: tr[i][2] };
-    var g = !p.shape ? MGEN.word : p.shape === "para" ? MGEN.para : p.shape === "tri" ? MGEN.tri : p.shape === "cuboid" ? MGEN.volume
+    var g = p.conv ? MGEN.conv : !p.shape ? MGEN.word : p.shape === "para" ? MGEN.para : p.shape === "tri" ? MGEN.tri : p.shape === "cuboid" ? MGEN.volume
       : p.ask === "perimeter" ? MGEN.perimeter : p.shape === "lshape" ? MGEN.lshape : MGEN.area;
     return { status: "wrong", code: "other", hint: g };
   }
@@ -674,9 +704,10 @@
     "meas-perimeter":   { en: "Perimeter", ja: "周の長さ（長方形・L字）", make: perimMake("meas-perimeter"), check: measCheck, tags: ["rect", "lshape"] },
     "meas-area-rect":   { en: "Area of rectangles & L-shapes", ja: "長方形・L字の面積", make: areaRectMake("meas-area-rect"), check: measCheck, tags: ["rect", "lshape"] },
     "meas-area-para":   { en: "Area of a parallelogram", ja: "平行四辺形の面積", make: areaParaMake("meas-area-para"), check: measCheck },
-    "meas-area-tri":    { en: "Area of a triangle", ja: "三角形の面積", make: areaTriMake("meas-area-tri"), check: measCheck, tags: ["right", "slant"] },
-    "meas-volume":      { en: "Volume of a cuboid", ja: "直方体の体積（cm³・m³）", make: volMake("meas-volume"), check: measCheck, tags: ["cm", "m"] },
-    "meas-word":        { en: "Measurement word problems", ja: "測定の文章題", make: mwordMake("meas-word"), check: measCheck, tags: ["missing-side", "square", "cubes", "fence"] }
+    "meas-area-tri":    { en: "Area of a triangle", ja: "三角形の面積（直角・斜め・鈍角）", make: areaTriMake("meas-area-tri"), check: measCheck, tags: ["right", "slant", "obtuse"] },
+    "meas-volume":      { en: "Volume of a cuboid", ja: "直方体の体積（cm³・m³・mm³）", make: volMake("meas-volume"), check: measCheck, tags: ["cm", "m", "mm"] },
+    "meas-word":        { en: "Measurement word problems", ja: "測定の文章題", make: mwordMake("meas-word"), check: measCheck, tags: ["missing-side", "square", "cubes", "fence"] },
+    "meas-convert":     { en: "Converting units", ja: "単位の換算（長さ・面積・体積）", make: convMeasMake("meas-convert"), check: measCheck, tags: ["length", "area", "volume"] }
   };
 
   var G = { TYPES: TYPES, gcd: gcd, fmt: fmt, num: num, divSteps: divSteps };
