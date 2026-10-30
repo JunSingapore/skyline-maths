@@ -7,13 +7,31 @@
  *  - mix: 1回（Start）の配分。単元 id と問題数。short は合計8問、long は合計14問
  */
 window.MATH_CONTENT = {
-  version: "2026-10-29",
+  version: "2026-10-30",
   appName: "Skyline Maths",
 
   units: [
     {
-      id: "m-frac-muldiv",
+      id: "m-measure",
       status: "next",
+      when: "Week of 2 Nov",
+      title: "Perimeter, area & volume",
+      ja: "測定（周の長さ・長方形/L字・平行四辺形・三角形の面積・直方体の体積）",
+      types: ["meas-perimeter", "meas-area-rect", "meas-area-para", "meas-area-tri", "meas-volume"],
+      source: "Michaelmas W10 ニュースレター（10/30・/news/13302）：分数の四則を続けつつ測定へ。perimeter, area, volume, formulae, parallelograms, triangles, cuboids, cm³, m³"
+    },
+    {
+      id: "m-measure-word",
+      status: "next",
+      when: "Week of 2 Nov",
+      title: "Measurement word problems",
+      ja: "測定の文章題（PMC 風：面積から辺・正方形・立方体を詰める・フェンス代）",
+      types: ["meas-word"],
+      source: "Michaelmas W10 ニュースレター（10/30・/news/13302）：PMC（Primary Mathematics Challenge）向けの文章題練習を継続"
+    },
+    {
+      id: "m-frac-muldiv",
+      status: "review",
       when: "Week of 26 Oct",
       title: "Multiplying & dividing fractions",
       ja: "分数のかけ算・わり算（整数との計算・ひっくり返してかける）",
@@ -22,7 +40,7 @@ window.MATH_CONTENT = {
     },
     {
       id: "m-frac-word",
-      status: "next",
+      status: "review",
       when: "Week of 26 Oct",
       title: "Fraction word problems",
       ja: "分数の文章題（たし算・かけ算・わり算・〜の〜）",
@@ -77,7 +95,7 @@ window.MATH_CONTENT = {
   ],
 
   mix: {
-    short: [["m-frac-muldiv", 3], ["m-frac-word", 2], ["m-frac-addsub", 1], ["m-mixed", 1], ["m-fractions", 1]],
-    long: [["m-frac-muldiv", 5], ["m-frac-word", 3], ["m-frac-addsub", 2], ["m-mixed", 2], ["m-fractions", 1], ["m-longdiv", 1]]
+    short: [["m-measure", 3], ["m-measure-word", 1], ["m-frac-muldiv", 2], ["m-frac-word", 1], ["m-mixed", 1]],
+    long: [["m-measure", 6], ["m-measure-word", 2], ["m-frac-muldiv", 2], ["m-frac-word", 2], ["m-frac-addsub", 1], ["m-mixed", 1]]
   }
 };

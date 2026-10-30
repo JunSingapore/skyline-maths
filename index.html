@@ -202,6 +202,15 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 .tally span { font-size: 16px; color: var(--muted); }
 /* ── maths problem ── */
 .prob { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 28px 24px; display: flex; flex-direction: column; gap: 18px; align-items: center; }
+.fig { margin: 0; width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.fig svg { width: 100%; height: auto; overflow: visible; }
+.fig .shape { fill: var(--lamp-soft); stroke: var(--ink); stroke-width: 3; stroke-linejoin: round; }
+.fig .top { fill: var(--surface); }
+.fig .side { fill: var(--line); }
+.fig .dash { stroke: var(--ink); stroke-width: 2; stroke-dasharray: 6 5; }
+.fig .tick { fill: none; stroke: var(--ink); stroke-width: 2; }
+.fig text { fill: var(--ink); font-family: var(--body); font-weight: 700; font-size: 20px; }
+.fig figcaption { font-size: 13px; color: var(--muted); }
 .story { margin: 0 0 18px; font-size: 21px; line-height: 1.5; text-align: left; }
 .eq { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px 14px; font-family: var(--body); font-weight: 700; font-size: 40px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .eq .op { color: var(--muted); }
@@ -550,11 +559,57 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       if (p.kind === "fword") return '<p class="story">' + esc(p.story) + '</p><div class="eq">' + outF + '<span class="lbl">' + esc(p.unit) + "</span></div>";
       return '<div class="eq">' + opnd(p.A) + '<span class="op">' + p.op + "</span>" + opnd(p.B) + '<span class="op">=</span>' + outF + "</div>";
     }
+    if (p.kind === "meas") {
+      var ansH = (p.pre ? '<span class="lbl">' + esc(p.unit) + "</span>" : "") + boxHTML(p, "x", true) + (p.pre ? "" : '<span class="lbl">' + esc(p.unit) + "</span>");
+      if (p.story) return '<p class="story">' + esc(p.story) + '</p><div class="eq">' + ansH + "</div>";
+      var what = { perimeter: "Perimeter", area: "Area", volume: "Volume" }[p.ask];
+      return figHTML(p) + '<div class="eq"><span class="lbl">' + what + ' =</span>' + ansH + "</div>";
+    }
     // equiv
     var right = p.missing === 0 ? fracHTML(boxHTML(p, "x"), p.R[1]) : fracHTML(p.R[0], boxHTML(p, "x"));
     return '<div class="eq">' + fracHTML(p.L[0], p.L[1]) + '<span class="op">=</span>' + right + "</div>";
   }
+  // 測定の図（SVG）。長さは見やすさ優先で、縮尺どおりではない
+  function figHTML(p) {
+    var d = p.d, u = p.u || "cm", W = 320, Hm = 190, P = 46;
+    function sc(vals) { var mx = Math.max.apply(null, vals); return function (v) { return 60 + 190 * v / mx; }; }
+    function t(x, y, s, anchor) { return '<text x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + (anchor || "middle") + '">' + esc(s) + "</text>"; }
+    function L(n) { return n + " " + u; }
+    var body = "", w, h;
+    if (p.shape === "rect") {
+      var f = sc([d.w, d.h * 1.2]); w = f(d.w); h = Math.min(f(d.h), Hm - 20);
+      body = '<rect x="0" y="0" width="' + w + '" height="' + h + '" class="shape"/>' + t(w / 2, h + 26, L(d.w)) + t(-10, h / 2 + 6, L(d.h), "end");
+    } else if (p.shape === "lshape") {
+      var g = sc([d.W, d.H * 1.2]); w = g(d.W); h = Math.min(g(d.H), Hm - 20);
+      var ca = w * d.a / d.W, cb = h * d.b / d.H;
+      body = '<path d="M0 0 H' + (w - ca) + " V" + cb + " H" + w + " V" + h + ' H0 Z" class="shape"/>' +
+        t((w - ca) / 2, -10, L(d.W - d.a)) + t(w / 2, h + 26, L(d.W)) + t(-10, h / 2 + 6, L(d.H), "end") + t(w + 10, (cb + h) / 2 + 6, L(d.H - d.b), "start");
+    } else if (p.shape === "para") {
+      var k = sc([d.b, d.h * 1.3]); w = k(d.b); h = Math.min(k(d.h), Hm - 20); var o = w * Math.sqrt(d.s * d.s - d.h * d.h) / d.b;   // 斜めの辺の水平のずれ（数字と合わせる）
+      body = '<path d="M' + o + " 0 H" + (o + w) + " L" + w + " " + h + ' H0 Z" class="shape"/>' +
+        '<line x1="' + o + '" y1="0" x2="' + o + '" y2="' + h + '" class="dash"/><path d="M' + o + " " + (h - 12) + " h12 v12" + '" class="tick"/>' +
+        t(w / 2, h + 26, L(d.b)) + t(o + 18, h / 2 + 6, L(d.h), "start") + t(o / 2 - 10, h / 2 + 6, L(d.s), "end");
+      w += o;
+    } else if (p.shape === "tri") {
+      var m = sc([d.b, d.h * 1.3]); w = m(d.b); h = Math.min(m(d.h), Hm - 20);
+      if (!d.s) body = '<path d="M0 0 V' + h + " H" + w + ' Z" class="shape"/><path d="M0 ' + (h - 12) + " h12 v12" + '" class="tick"/>' + t(w / 2, h + 26, L(d.b)) + t(-10, h / 2 + 6, L(d.h), "end");
+      else { w = Math.max(w, 210); var ax = w * (1 - Math.sqrt(d.s * d.s - d.h * d.h) / d.b);   // 右の辺の水平のずれを数字と合わせる   // 高さの文字が斜めの辺にかからない幅
+        body = '<path d="M' + ax + " 0 L" + w + " " + h + " H0 Z" + '" class="shape"/><line x1="' + ax + '" y1="0" x2="' + ax + '" y2="' + h + '" class="dash"/><path d="M' + ax + " " + (h - 12) + " h12 v12" + '" class="tick"/>' +
+          t(w / 2, h + 26, L(d.b)) + (ax > w / 2 ? t(ax - 10, h * 0.62, L(d.h), "end") : t(ax + 10, h * 0.62, L(d.h), "start")) + t((ax + w) / 2 + 14, h / 2, L(d.s), "start"); }
+    } else if (p.shape === "cuboid") {
+      var q = sc([d.l, d.h * 1.2, d.w * 1.6]); w = q(d.l) * 0.85; h = Math.min(q(d.h) * 0.8, Hm - 70); var dp = Math.max(28, q(d.w) * 0.4);
+      var y0 = dp * 0.7;
+      body = '<path d="M0 ' + y0 + " h" + w + " v" + h + " h" + (-w) + ' Z" class="shape"/>' +
+        '<path d="M0 ' + y0 + " l" + dp + " " + (-y0) + " h" + w + " l" + (-dp) + " " + y0 + ' Z" class="shape top"/>' +
+        '<path d="M' + w + " " + y0 + " l" + dp + " " + (-y0) + " V" + h + " l" + (-dp) + " " + y0 + ' Z" class="shape side"/>' +
+        t(w / 2, y0 + h + 26, L(d.l)) + t(-10, y0 + h / 2 + 6, L(d.h), "end") + t(w + dp / 2 + 10, y0 + h - y0 / 2 + 6, L(d.w), "start");
+      w += dp; h += y0;
+    }
+    var vb = (-P - 30) + " " + (-30) + " " + (w + 2 * P + 60) + " " + (h + 66);
+    return '<figure class="fig"><svg viewBox="' + vb + '" role="img" aria-label="Shape with its measurements">' + body + '</svg><figcaption>Not drawn to scale</figcaption></figure>';
+  }
   function askText(p) {
+    if (p.kind === "meas") return p.story ? "Read carefully. Use paper for the working." : p.ask === "perimeter" ? "Find the perimeter." : p.ask === "volume" ? "Find the volume." : "Find the area.";
     if (p.kind === "mul") return "Work it out.";
     if (p.kind === "div") return "Divide. Write the remainder too (0 if it divides exactly).";
     if (p.kind === "simp") return "Simplify fully.";
@@ -570,7 +625,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var h = '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">';
     h += '<p class="eyebrow">' + esc(ty.en) + esc(tag) + "</p>";
     h += '<div class="prob"><p class="muted">' + esc(askText(p)) + "</p>" + eqHTML(p);
-    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword") h += '<p class="paper">Use paper for the working.</p>';
+    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword" || (p.kind === "meas" && !p.story)) h += '<p class="paper">Use paper for the working.</p>';
     h += "</div>";
     if (ui.done) h += feedbackHTML(p);
     else {
@@ -605,6 +660,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     if (p.kind === "simp") return a.n + "/" + a.m;
     if (p.out === "mixed") return a.w + " " + a.n + "/" + a.m;
     if (p.out === "frac") return a.n + "/" + a.m;
+    if (p.kind === "meas") return p.pre ? p.unit + G.fmt(a.x) : G.fmt(a.x) + " " + p.unit;
     return G.fmt(a.x);
   }
   function givenText(p, vals) {

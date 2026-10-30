@@ -444,6 +444,210 @@
     return { status: "wrong", code: "other", hint: H("Keep the first fraction, change ÷ to ×, flip the second, then simplify.", "1つ目はそのまま、÷ を × に、2つ目をひっくり返す。最後に約分しよう。") };
   }
 
+  /* ── 測定：周の長さ・面積・体積（W10 追加） ── */
+  // 答えは整数1つ（field x）。fig＝図のデータ（index.html が SVG で描く・縮尺どおりではない）
+  var U2 = { cm: "cm²", m: "m²" }, U3 = { cm: "cm³", m: "m³" };
+  function measP(id, tag, shape, d, unit, ans, steps, extra) {
+    var p = { type: id, tag: tag, kind: "meas", shape: shape, d: d, unit: unit, fields: ["x"], answer: { x: ans }, steps: steps };
+    for (var k in extra || {}) p[k] = extra[k];
+    if (!p.text) p.text = measText(p);
+    return p;
+  }
+  // 図形問題の文字版（結果画面・保護者メモで、どの問題か分かるように）
+  function measText(p) {
+    var d = p.d, u = p.u || "cm", q = { perimeter: "Perimeter", area: "Area", volume: "Volume" }[p.ask];
+    if (p.shape === "rect") return q + " of a rectangle " + d.w + " " + u + " × " + d.h + " " + u;
+    if (p.shape === "lshape") return q + " of an L-shape (" + d.W + " × " + d.H + " with a " + d.a + " × " + d.b + " corner cut out)";
+    if (p.shape === "para") return "Area of a parallelogram: base " + d.b + " cm, height " + d.h + " cm, slanted side " + d.s + " cm";
+    if (p.shape === "tri") return "Area of a triangle: base " + d.b + " cm, height " + d.h + " cm" + (d.s ? ", slanted side " + d.s + " cm" : "");
+    return "Volume of a cuboid " + d.l + " × " + d.w + " × " + d.h + " " + u;
+  }
+  // 周の長さ：rect＝長方形／lshape＝L字（2辺が書いていない）
+  function perimMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["rect", "lshape"]);
+      if (tag === "rect") {
+        var w = rnd(4, 25), h = rnd(3, 18); if (w === h) h++;
+        return measP(id, tag, "rect", { w: w, h: h }, "cm", 2 * (w + h), [
+          "Perimeter = all the way round: " + w + " + " + h + " + " + w + " + " + h,
+          "= 2 × (" + w + " + " + h + ") = 2 × " + (w + h) + " = " + 2 * (w + h) + " cm"], { ask: "perimeter" });
+      }
+      var L = lshape();
+      return measP(id, tag, "lshape", L, "cm", 2 * (L.W + L.H), [
+        "The unmarked sides: " + L.W + " − " + (L.W - L.a) + " = " + L.a + " and " + L.H + " − " + (L.H - L.b) + " = " + L.b + ".",
+        "All the way round: " + L.W + " + " + L.H + " + " + (L.W - L.a) + " + " + L.b + " + " + L.a + " + " + (L.H - L.b) + " = " + 2 * (L.W + L.H) + " cm",
+        "(Shortcut: it is the same as the big rectangle, 2 × (" + L.W + " + " + L.H + ").)"], { ask: "perimeter" });
+    };
+  }
+  // L字：W×H の右上から a×b を切り取った形。図に書くのは W・H・上の辺(W−a)・右の辺(H−b)
+  function lshape() {
+    var W = rnd(8, 20), H = rnd(6, 16), a = rnd(2, W - 3), b = rnd(2, H - 3);
+    return { W: W, H: H, a: a, b: b };
+  }
+  function areaRectMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["rect", "lshape"]);
+      if (tag === "rect") {
+        var w = rnd(4, 25), h = rnd(3, 15); if (w === h) h++;
+        return measP(id, tag, "rect", { w: w, h: h }, "cm²", w * h, ["Area = length × width = " + w + " × " + h + " = " + w * h + " cm²"], { ask: "area" });
+      }
+      var L = lshape(), big = L.W * L.H, cut = L.a * L.b;
+      return measP(id, tag, "lshape", L, "cm²", big - cut, [
+        "The missing corner is " + L.W + " − " + (L.W - L.a) + " = " + L.a + " wide and " + L.H + " − " + (L.H - L.b) + " = " + L.b + " tall.",
+        "Big rectangle: " + L.W + " × " + L.H + " = " + big + ".  Missing corner: " + L.a + " × " + L.b + " = " + cut + ".",
+        big + " − " + cut + " = " + (big - cut) + " cm²  (or split it into two rectangles)"], { ask: "area" });
+    };
+  }
+  // 斜めの辺 s：水平のずれ √(s²−h²) が底辺の 0.2〜0.8 倍に収まる整数（図と数字が矛盾しない）。無ければ null
+  function slantSide(b, h) {
+    var ok = [];
+    for (var s = h + 1; s * s <= h * h + 0.64 * b * b; s++) if (s * s >= h * h + 0.04 * b * b) ok.push(s);
+    return ok.length ? pick(ok) : null;
+  }
+  function areaParaMake(id) {
+    return function () {
+      var b, h, s;
+      do { b = rnd(4, 15); h = rnd(3, 12); s = slantSide(b, h); } while (s == null);
+      return measP(id, null, "para", { b: b, h: h, s: s }, "cm²", b * h, [
+        "Area of a parallelogram = base × perpendicular height (the dashed line, not the slanted side).",
+        b + " × " + h + " = " + b * h + " cm²"], { ask: "area" });
+    };
+  }
+  // 三角形：right＝直角三角形／slant＝高さが点線（斜めの辺も書いてある）
+  function areaTriMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["right", "slant"]);
+      for (;;) {
+        var b = rnd(4, 20), h = rnd(3, 16);
+        if ((b * h) % 2) continue;
+        var d = { b: b, h: h };
+        if (tag === "slant") { d.s = slantSide(b, h); if (d.s == null) continue; }
+        return measP(id, tag, "tri", d, "cm²", b * h / 2, [
+          "Area of a triangle = base × height ÷ 2 (it is half of a rectangle).",
+          b + " × " + h + " = " + b * h + ",  " + b * h + " ÷ 2 = " + b * h / 2 + " cm²"], { ask: "area" });
+      }
+    };
+  }
+  function volMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["cm", "m"]);
+      for (;;) {
+        var l = tag === "cm" ? rnd(3, 15) : rnd(2, 9), w = tag === "cm" ? rnd(2, 10) : rnd(2, 8), h = tag === "cm" ? rnd(2, 12) : rnd(2, 6);
+        if (l === w && w === h) continue;
+        return measP(id, tag, "cuboid", { l: l, w: w, h: h }, U3[tag], l * w * h, [
+          "Volume = length × width × height",
+          l + " × " + w + " = " + l * w + ",  " + l * w + " × " + h + " = " + l * w * h + " " + U3[tag]], { ask: "volume", u: tag });
+      }
+    };
+  }
+  // 測定の文章題（PMC 風・名前なし）
+  var MSTORIES = {
+    "missing-side": function () {
+      var w = rnd(3, 12), h = rnd(4, 15), A = w * h;
+      return { unit: "cm", ans: h, d: { A: A, w: w },
+        story: "A rectangle has an area of " + A + " cm². One side is " + w + " cm long. How long is the other side?",
+        steps: ["Area = length × width, so the other side = area ÷ " + w + ".", A + " ÷ " + w + " = " + h + " cm"] };
+    },
+    square: function () {
+      var s = rnd(3, 15), P = 4 * s;
+      return { unit: "cm²", ans: s * s, d: { P: P, s: s },
+        story: "A square has a perimeter of " + P + " cm. What is its area?",
+        steps: ["A square has 4 equal sides: " + P + " ÷ 4 = " + s + " cm each.", "Area = " + s + " × " + s + " = " + s * s + " cm²"] };
+    },
+    cubes: function () {
+      var k = pick([2, 2, 3]), a = rnd(2, 5), b = rnd(2, 4), c = rnd(1, 3);
+      var L = a * k, W = b * k, Hh = c * k;
+      return { unit: "cubes", ans: a * b * c, d: { k: k, L: L, W: W, H: Hh },
+        story: "A box measures " + L + " cm by " + W + " cm by " + Hh + " cm inside. How many " + k + " cm cubes fit inside exactly?",
+        steps: ["Along each edge: " + L + " ÷ " + k + " = " + a + ",  " + W + " ÷ " + k + " = " + b + ",  " + Hh + " ÷ " + k + " = " + c + ".",
+          a + " × " + b + " × " + c + " = " + a * b * c + " cubes"] };
+    },
+    fence: function () {
+      var l = rnd(5, 20), w = rnd(3, 12), c = rnd(2, 9); if (l === w) l++;
+      return { unit: "£", pre: true, ans: 2 * (l + w) * c, d: { l: l, w: w, c: c },
+        story: "A rectangular garden is " + l + " m long and " + w + " m wide. Fencing costs £" + c + " per metre. How much does it cost to fence all the way round?",
+        steps: ["Distance round: 2 × (" + l + " + " + w + ") = " + 2 * (l + w) + " m.", 2 * (l + w) + " × £" + c + " = £" + 2 * (l + w) * c] };
+    }
+  };
+  function mwordMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["missing-side", "square", "cubes", "fence"]), st;
+      do st = MSTORIES[tag](); while (new RegExp("(^|[^0-9])" + st.ans + "([^0-9]|$)").test(st.story));   // 答えの数が文中に出るものは出さない
+      return measP(id, tag, null, st.d, st.unit, st.ans, st.steps, { story: st.story, text: st.story, pre: !!st.pre });
+    };
+  }
+
+  // 測定のよくある間違い：[値, code, 手がかり]（答えと同じ値のものは使わない）
+  function measTraps(p) {
+    var d = p.d, t = [];
+    function T_(v, code, en, ja) { t.push([v, code, H(en, ja)]); }
+    var areaVsPerim = H("That looks like the " + (p.ask === "area" ? "perimeter (all the way round)" : "area (the space inside)") + ". Which one does the question ask for?",
+      (p.ask === "area" ? "周の長さ（まわり）" : "面積（中の広さ）") + "を出したかな？ 聞かれているのはどっち？");
+    if (p.type === "meas-perimeter") {
+      if (p.tag === "rect") {
+        t.push([d.w * d.h, "area-not-perimeter", areaVsPerim]);
+        T_(d.w + d.h, "half", "Did you add just two sides? A rectangle has four sides — go all the way round.", "2辺だけ足したかな？ 長方形の辺は4つ。ぐるっと一周しよう。");
+      } else {
+        T_(d.W + d.H + (d.W - d.a) + (d.H - d.b), "missing-sides", "Did you add every side? Two sides have no number on them — work them out too.", "数字が書いていない辺が2つあるよ。長さを考えて、それも足そう。");
+        t.push([d.W * d.H - d.a * d.b, "area-not-perimeter", areaVsPerim]);
+      }
+    } else if (p.type === "meas-area-rect") {
+      if (p.tag === "rect") {
+        t.push([2 * (d.w + d.h), "perimeter-not-area", areaVsPerim]);
+        T_(d.w + d.h, "added", "For area, multiply — don’t add.", "面積はかけ算だよ。足すのではなく、かけよう。");
+      } else {
+        T_(d.W * d.H, "whole-box", "Is that the whole big rectangle? A corner is missing — what should happen to it?", "大きな長方形全体の面積かな？ 欠けている角はどうする？");
+        T_(d.W * d.H - (d.W - d.a) * (d.H - d.b), "wrong-corner", "Check the size of the missing corner: how wide and how tall is it?", "欠けている角の、たてと横の長さをもう一度考えよう。");
+        t.push([2 * (d.W + d.H), "perimeter-not-area", areaVsPerim]);
+      }
+    } else if (p.type === "meas-area-para") {
+      T_(d.b * d.s, "slant", "Use the height that is straight up (the dashed line), not the slanted side.", "斜めの辺ではなく、まっすぐの高さ（点線）を使おう。");
+      if ((d.b * d.h) % 2 === 0) T_(d.b * d.h / 2, "halved", "No ÷ 2 for a parallelogram — that is for triangles.", "平行四辺形は ÷2 しないよ（÷2 は三角形）。");
+      T_(2 * (d.b + d.s), "perimeter-not-area", "That looks like the distance all the way round. Area is base × height.", "まわりの長さを出したかな？ 面積は 底辺 × 高さ だよ。");
+    } else if (p.type === "meas-area-tri") {
+      T_(d.b * d.h, "no-half", "A triangle is half of a rectangle. Did you remember to halve?", "三角形は長方形の半分だよ。÷2 したかな？");
+      if (d.s) { T_(d.b * d.s, "slant", "Use the height that is straight up (the dashed line), not the slanted side.", "斜めの辺ではなく、まっすぐの高さ（点線）を使おう。");
+        if ((d.b * d.s) % 2 === 0) T_(d.b * d.s / 2, "slant", "Use the height that is straight up (the dashed line), not the slanted side.", "斜めの辺ではなく、まっすぐの高さ（点線）を使おう。"); }
+    } else if (p.type === "meas-volume") {
+      T_(d.l + d.w + d.h, "added", "For volume, multiply all three lengths.", "体積は3つの長さをかけるよ。");
+      [d.l * d.w, d.l * d.h, d.w * d.h].forEach(function (v) { T_(v, "two-dims", "That uses only two lengths (that is an area). Volume needs all three.", "2つの長さだけだと面積になるよ。体積は3つ全部かけよう。"); });
+    } else if (p.tag === "missing-side") {
+      T_(d.A - d.w, "subtracted", "Area is length × width. Which number times " + d.w + " makes the area?", "面積＝たて × 横。" + d.w + " に何をかけると面積になるかな？");
+      T_(d.A * d.w, "multiplied", "The other side must be shorter than the area number. Try dividing.", "答えは面積の数より小さいはず。わり算を考えよう。");
+    } else if (p.tag === "square") {
+      T_(d.s, "side-only", "Could that be just one side? The question asks for the area.", "それは1辺の長さかな？ 聞かれているのは面積だよ。");
+      T_(d.P * d.P, "perimeter-squared", "First find one side: a square has 4 equal sides.", "まず1辺を出そう。正方形の辺は4つとも同じ長さだよ。");
+      T_((d.P / 2) * (d.P / 2), "half", "A square has 4 equal sides, not 2. Find one side first.", "正方形の辺は4つ。まず1辺の長さを出そう。");
+    } else if (p.tag === "cubes") {
+      T_(d.L * d.W * d.H, "cm-cubes", "Did you count 1 cm cubes? These cubes are " + d.k + " cm long — how many fit along each edge?", "1cmの立方体で数えたかな？ この立方体は1辺 " + d.k + " cm。それぞれの辺に何個並ぶかな？");
+      if ((d.L * d.W * d.H) % d.k === 0) T_(d.L * d.W * d.H / d.k, "divided-once", "Divide each edge by " + d.k + " first, then multiply.", "先にそれぞれの辺を " + d.k + " で割ってから、かけよう。");
+    } else if (p.tag === "fence") {
+      T_(d.l * d.w * d.c, "area", "A fence goes round the edge. Did you use the area instead of the distance round?", "フェンスはまわりに立てるもの。面積ではなく周の長さを使おう。");
+      T_((d.l + d.w) * d.c, "half", "Go all the way round: there are four sides.", "まわりは4辺あるよ。ぐるっと一周しよう。");
+      T_(2 * (d.l + d.w), "no-cost", "Is that the length of the fence? The question asks for the cost.", "それはフェンスの長さかな？ 聞かれているのは値段だよ。");
+    }
+    return t;
+  }
+  var MGEN = {
+    perimeter: H("Perimeter is the distance all the way round. Add every side.", "周の長さは、まわりをぐるっと一周した長さ。全部の辺を足そう。"),
+    area: H("Area = length × width. For other shapes, check the formula.", "面積は たて × 横。形によって公式を確かめよう。"),
+    para: H("Area of a parallelogram = base × perpendicular height.", "平行四辺形の面積 ＝ 底辺 × 高さ。"),
+    tri: H("Area of a triangle = base × height ÷ 2.", "三角形の面積 ＝ 底辺 × 高さ ÷ 2。"),
+    lshape: H("Split the shape into two rectangles, or take the missing corner away from the big rectangle.", "2つの長方形に分けるか、大きな長方形から欠けた角をひこう。"),
+    volume: H("Volume = length × width × height.", "体積 ＝ たて × 横 × 高さ。"),
+    word: H("Read it again. What do you know, and what are you asked to find? Try one step at a time.", "もう一度読もう。分かっていることは？ 聞かれていることは？ 1つずつ進めよう。")
+  };
+  function measCheck(p, inp) {
+    var x = num(inp.x);
+    if (x == null) return { status: "incomplete", hint: H("Type your answer in the box.", "答えを入れてね。") };
+    if (x === p.answer.x) return { status: "correct" };
+    var tr = measTraps(p);
+    for (var i = 0; i < tr.length; i++) if (tr[i][0] === x && tr[i][0] !== p.answer.x) return { status: "wrong", code: tr[i][1], hint: tr[i][2] };
+    var g = !p.shape ? MGEN.word : p.shape === "para" ? MGEN.para : p.shape === "tri" ? MGEN.tri : p.shape === "cuboid" ? MGEN.volume
+      : p.ask === "perimeter" ? MGEN.perimeter : p.shape === "lshape" ? MGEN.lshape : MGEN.area;
+    return { status: "wrong", code: "other", hint: g };
+  }
+
   /* ── 型の一覧（id は変えない） ── */
   var TYPES = {
     "mul-4by2":       { en: "4-digit × 2-digit", ja: "4桁×2桁", make: mulMake("mul-4by2", false), check: mulCheck },
@@ -466,7 +670,13 @@
     "frac-mul-whole":   { en: "Fraction × whole number", ja: "分数 × 整数（帯分数で）", make: fmdMake("frac-mul-whole", "×", "fw"), check: wcheck },
     "frac-div-whole":   { en: "Fraction ÷ whole number", ja: "分数 ÷ 整数", make: fmdMake("frac-div-whole", "÷", "fw"), check: wcheck },
     "frac-div":         { en: "Dividing by a fraction", ja: "分数 ÷ 分数（ひっくり返してかける）", make: fmdMake("frac-div", "÷", "ff"), check: wcheck },
-    "frac-word":        { en: "Fraction word problems", ja: "分数の文章題", make: wordMake("frac-word"), check: wcheck, tags: ["div", "mul", "of", "add"] }
+    "frac-word":        { en: "Fraction word problems", ja: "分数の文章題", make: wordMake("frac-word"), check: wcheck, tags: ["div", "mul", "of", "add"] },
+    "meas-perimeter":   { en: "Perimeter", ja: "周の長さ（長方形・L字）", make: perimMake("meas-perimeter"), check: measCheck, tags: ["rect", "lshape"] },
+    "meas-area-rect":   { en: "Area of rectangles & L-shapes", ja: "長方形・L字の面積", make: areaRectMake("meas-area-rect"), check: measCheck, tags: ["rect", "lshape"] },
+    "meas-area-para":   { en: "Area of a parallelogram", ja: "平行四辺形の面積", make: areaParaMake("meas-area-para"), check: measCheck },
+    "meas-area-tri":    { en: "Area of a triangle", ja: "三角形の面積", make: areaTriMake("meas-area-tri"), check: measCheck, tags: ["right", "slant"] },
+    "meas-volume":      { en: "Volume of a cuboid", ja: "直方体の体積（cm³・m³）", make: volMake("meas-volume"), check: measCheck, tags: ["cm", "m"] },
+    "meas-word":        { en: "Measurement word problems", ja: "測定の文章題", make: mwordMake("meas-word"), check: measCheck, tags: ["missing-side", "square", "cubes", "fence"] }
   };
 
   var G = { TYPES: TYPES, gcd: gcd, fmt: fmt, num: num, divSteps: divSteps };
