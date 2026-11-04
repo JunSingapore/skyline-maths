@@ -678,6 +678,145 @@
     return { status: "wrong", code: "other", hint: g };
   }
 
+  /* ── 小数（Lent 予習） ── */
+  // 値はすべて千分の一単位の整数（milli）で持つ。浮動小数は使わない
+  var P10 = [1, 10, 100, 1000];
+  // milli → 文字列。dp を渡すとその桁まで0を残す（10000, 2 → "10.00"）
+  function decS(m, dp) {
+    var f = String(m % 1000), s = fmt(Math.floor(m / 1000));
+    while (f.length < 3) f = "0" + f;
+    var keep = dp == null ? 0 : dp;
+    while (f.length > keep && f[f.length - 1] === "0") f = f.slice(0, -1);
+    return f ? s + "." + f : s;
+  }
+  // 入力 → milli。空・「5.」のような途中は null、小数第4位以降に0以外があれば NaN
+  function dnum(v) {
+    if (v == null) return null;
+    v = String(v).replace(/[,\s]/g, "");
+    var m = /^(\d{0,7})(?:\.(\d{0,7}))?$/.exec(v);
+    if (!m || (m[1] === "" && !m[2]) || /\.$/.test(v)) return null;
+    var f = m[2] || "";
+    if (/[1-9]/.test(f.slice(3))) return NaN;
+    return parseInt(m[1] || "0", 10) * 1000 + parseInt((f + "000").slice(0, 3), 10);
+  }
+  // 小数第 dp 位までの数（最後の桁は0でない）を milli で。v の範囲は呼ぶ側が決める
+  function decWith(dp, lo, hi) { var v; do v = rnd(lo, hi); while (v % 10 === 0); return v * P10[3 - dp]; }
+  function same(g, ans, j) { return j > 0 ? g === ans * P10[j] : g * P10[-j] === ans; }   // g が ans の 10^j 倍か
+  function shifted(g, ans) { for (var j = -3; j <= 3; j++) if (j && same(g, ans, j)) return true; return false; }
+  var PLACE = { tenths: [1, 100, "tenths"], hundredths: [2, 10, "hundredths"], thousandths: [3, 1, "thousandths"] };
+  var DPNAME = { whole: "the nearest whole number", "1dp": "1 decimal place", "2dp": "2 decimal places" };
+  var DPJA = { whole: "整数", "1dp": "小数第1位", "2dp": "小数第2位" };
+
+  // 位の値：4.372 の「7」の値＝0.07。数字はすべて違う（同じ数字が2回出ない）
+  function decPlaceMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["tenths", "hundredths", "thousandths"]), pl = PLACE[tag];
+      for (;;) {
+        var w = rnd(1, 99), ds = [rnd(1, 9), rnd(1, 9), rnd(1, 9)], all = String(w) + ds.join("");
+        if (/(.).*\1/.test(all)) continue;
+        var x = w * 1000 + ds[0] * 100 + ds[1] * 10 + ds[2], dg = ds[pl[0] - 1], xs = decS(x);
+        return { type: id, tag: tag, kind: "dec", x: x, digit: dg,
+          story: "What is the value of the digit " + dg + " in " + xs + "?", text: "Value of the " + dg + " in " + xs,
+          fields: ["x"], answer: { x: dg * pl[1] },
+          steps: ["In " + xs + ", the " + dg + " is in the " + pl[2] + " column (" + ["1st", "2nd", "3rd"][pl[0] - 1] + " place after the point).",
+            dg + " " + pl[2] + " = " + decS(dg * pl[1])] };
+      }
+    };
+  }
+  // × ÷ 10・100・1000。tag：mul／div（10・100）・1000（×÷1000 は別に追う）
+  function decX10Make(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["mul", "div", "1000"]);
+      var op = tag === "1000" ? pick(["×", "÷"]) : tag === "mul" ? "×" : "÷", k = tag === "1000" ? 1000 : pick([10, 100]);
+      for (;;) {
+        var dp = rnd(1, 3), small = decWith(dp, 11, dp === 3 ? 9999 : 999);   // 小さい方の数
+        var x = op === "×" ? small : small * k, ans = op === "×" ? small * k : small;
+        if (decS(x).replace(/,/g, "").length > 7 || decS(ans).replace(/,/g, "").length > 7) continue;
+        var n = String(k).length - 1;
+        return { type: id, tag: tag, kind: "dec", op: op, k: k, x: x,
+          text: decS(x) + " " + op + " " + fmt(k), fields: ["x"], answer: { x: ans },
+          steps: [op + " " + fmt(k) + ": the digits move " + n + " place" + (n > 1 ? "s" : "") + " to the " + (op === "×" ? "left (the number gets bigger)." : "right (the number gets smaller)."),
+            decS(x) + " " + op + " " + fmt(k) + " = " + decS(ans)] };
+      }
+    };
+  }
+  // 丸め：小数第3位までの数を 整数／小数第1位／小数第2位 に（5 は切り上げ）
+  var RUNIT = { whole: 1000, "1dp": 100, "2dp": 10 }, RDP = { whole: 0, "1dp": 1, "2dp": 2 };
+  function decRoundMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["whole", "1dp", "2dp"]), u = RUNIT[tag];
+      var x = decWith(3, 1001, 99999), ans = Math.floor((x + u / 2) / u) * u;
+      var nd = Math.floor(x / (u / 10)) % 10, nxt = ["tenths", "hundredths", "thousandths"][RDP[tag]];
+      return { type: id, tag: tag, kind: "dec", x: x, dp: RDP[tag],
+        story: "Round " + decS(x) + " to " + DPNAME[tag] + ".", text: "Round " + decS(x) + " to " + DPNAME[tag],
+        fields: ["x"], answer: { x: ans },
+        steps: ["Look at the next digit along (the " + nxt + "): it is " + nd + ".",
+          nd >= 5 ? nd + " is 5 or more, so round up." : nd + " is less than 5, so round down (keep the digit).",
+          decS(x) + " → " + decS(ans, RDP[tag])] };
+    };
+  }
+  // 小数 × 1桁の整数（3.46 × 7）
+  function decMulMake(id) {
+    return function (prefTag) {
+      var tag = prefTag || pick(["1dp", "2dp"]), dp = tag === "1dp" ? 1 : 2;
+      var a = decWith(dp, dp === 1 ? 11 : 101, dp === 1 ? 999 : 9999), k = rnd(2, 9), v = a / P10[3 - dp];
+      return { type: id, tag: tag, kind: "dec", op: "×", a: a, k: k, places: dp,
+        text: decS(a) + " × " + k, fields: ["x"], answer: { x: a * k },
+        steps: ["Ignore the point for now: " + fmt(v) + " × " + k + " = " + fmt(v * k) + ".",
+          decS(a) + " has " + dp + " decimal place" + (dp > 1 ? "s" : "") + ", so the answer has " + dp + " too: " + decS(a * k, dp),
+          "Check: about " + Math.round(a / 1000) + " × " + k + " = " + Math.round(a / 1000) * k + ", so the size looks right."] };
+    };
+  }
+  // 整数 ÷ {2,4,5,8}、答えは小数第2位まで（余りを小数で続ける）。tag＝小数部分の種類
+  function decTag(ans) { var f = ans % 1000; return f === 500 ? "half" : f % 250 === 0 ? "quarter" : "fifth"; }
+  function decDivMake(id) {
+    return function (prefTag) {
+      for (;;) {
+        var d = pick([2, 4, 5, 8]), N = rnd(11, 999);
+        if (N % d === 0 || (N * 100) % d !== 0) continue;
+        var ans = N * 1000 / d, tag = decTag(ans);
+        if (prefTag && tag !== prefTag) continue;
+        var q = Math.floor(N / d), r = N % d, st = [N + " ÷ " + d + " = " + q + " remainder " + r + ". Don’t stop — put a point after " + q + " and keep going."], cur = r, digits = "";
+        while (cur) { cur *= 10; var dg = Math.floor(cur / d); st.push(cur + " ÷ " + d + " = " + dg + (cur % d ? " remainder " + (cur % d) : "") + "  → next digit " + dg); digits += dg; cur %= d; }
+        st.push(N + " ÷ " + d + " = " + q + "." + digits);
+        return { type: id, tag: tag, kind: "dec", op: "÷", N: N, d: d, q: q, r: r,
+          text: N + " ÷ " + d, fields: ["x"], answer: { x: ans }, steps: st };
+      }
+    };
+  }
+  function decCheck(p, inp) {
+    var g = dnum(inp.x);
+    if (g == null) return { status: "incomplete", hint: H("Type your answer. If it ends with a point, add the digits after it.", "答えを入れてね。最後が「.」なら、そのあとの数字も入れよう。") };
+    var ans = p.answer.x;
+    if (g === ans) return { status: "correct" };
+    if (g !== g) return { status: "wrong", code: "too-precise", hint: H("The answer needs no more than 3 decimal places.", "答えは小数第3位までだよ。") };
+    function W(code, en, ja) { return { status: "wrong", code: code, hint: H(en, ja) }; }
+    if (p.type === "dec-place") {
+      if (g === p.digit * 1000) return W("digit", "That is the digit itself. What is it worth in its column?", "それは数字そのものだね。その位では、いくつ分の値かな？");
+      if (shifted(g, ans)) return W("point", "Check which column the " + p.digit + " is in: tenths, hundredths or thousandths?", p.digit + " は 小数第何位（1/10・1/100・1/1000）の位にあるかな？");
+    } else if (p.type === "dec-x10") {
+      if (p.op === "×" ? g * p.k === p.x : g === p.x * p.k) return W("wrong-way", "Check the direction: should the answer be bigger or smaller than " + decS(p.x) + "?", "向きを確かめよう。答えは " + decS(p.x) + " より大きくなる？小さくなる？");
+      if (shifted(g, ans)) return W("places", "Count the zeros in " + fmt(p.k) + ": that is how many places the digits move.", fmt(p.k) + " の0の数だけ、数字が動くよ。");
+    } else if (p.type === "dec-round") {
+      var u = RUNIT[p.tag];
+      if (g === Math.floor(p.x / u) * u) return W("truncate", "Look at the next digit along. If it is 5 or more, round up.", "1つ右の数字を見よう。5以上なら切り上げだよ。");
+      for (var t in RUNIT) if (t !== p.tag && g === Math.floor((p.x + RUNIT[t] / 2) / RUNIT[t]) * RUNIT[t]) return W("wrong-place", "Check which place to round to: " + DPNAME[p.tag] + ".", "どの位に丸めるか確かめよう：" + DPJA[p.tag] + "まで。");
+    } else if (p.type === "dec-mul") {
+      if (shifted(g, ans)) return W("point", "Count the decimal places in " + decS(p.a) + ". Your answer needs the same number.", decS(p.a) + " の小数点以下の桁数を数えよう。答えも同じ桁数になるよ。");
+    } else if (p.type === "dec-div") {
+      if (g === dnum(p.q + "." + p.r)) return W("remainder", "A remainder isn’t a decimal. Keep dividing: put a 0 after the point and carry on.", "余りはそのまま小数にはならないよ。小数点のあとに0をつけて、割り続けよう。");
+      if (shifted(g, ans)) return W("point", "Check where the point goes: how many whole times does " + p.d + " go into " + p.N + "?", "小数点の位置を確かめよう。" + p.N + " の中に " + p.d + " は（整数で）いくつ入るかな？");
+    }
+    var gen = {
+      "dec-place": H("Name the column first: after the point come tenths, hundredths, thousandths.", "まず位を確かめよう。小数点のあとは 1/10・1/100・1/1000 の位だよ。"),
+      "dec-x10": H("× makes it bigger, ÷ makes it smaller. Move each digit one place for every 0.", "× は大きく、÷ は小さく。0 の数だけ数字が動くよ。"),
+      "dec-round": H("Find the digit you are rounding to, then look at the one just after it.", "丸める位の数字を見つけて、その1つ右を見よう。"),
+      "dec-mul": H("Multiply without the point, then put back the same number of decimal places.", "小数点をとってかけ算し、最後に同じ桁数だけ小数点を戻そう。"),
+      "dec-div": H("Divide as usual. When you have a remainder, put a point and a 0, then keep going.", "ふつうに割って、余りが出たら小数点と0をつけて続けよう。")
+    }[p.type];
+    return { status: "wrong", code: "other", hint: gen };
+  }
+
   /* ── 型の一覧（id は変えない） ── */
   var TYPES = {
     "mul-4by2":       { en: "4-digit × 2-digit", ja: "4桁×2桁", make: mulMake("mul-4by2", false), check: mulCheck },
@@ -707,9 +846,14 @@
     "meas-area-tri":    { en: "Area of a triangle", ja: "三角形の面積（直角・斜め・鈍角）", make: areaTriMake("meas-area-tri"), check: measCheck, tags: ["right", "slant", "obtuse"] },
     "meas-volume":      { en: "Volume of a cuboid", ja: "直方体の体積（cm³・m³・mm³）", make: volMake("meas-volume"), check: measCheck, tags: ["cm", "m", "mm"] },
     "meas-word":        { en: "Measurement word problems", ja: "測定の文章題", make: mwordMake("meas-word"), check: measCheck, tags: ["missing-side", "square", "cubes", "fence"] },
-    "meas-convert":     { en: "Converting units", ja: "単位の換算（長さ・面積・体積）", make: convMeasMake("meas-convert"), check: measCheck, tags: ["length", "area", "volume"] }
+    "meas-convert":     { en: "Converting units", ja: "単位の換算（長さ・面積・体積）", make: convMeasMake("meas-convert"), check: measCheck, tags: ["length", "area", "volume"] },
+    "dec-place":        { en: "Decimal place value", ja: "小数の位（その数字の値）", make: decPlaceMake("dec-place"), check: decCheck, tags: ["tenths", "hundredths", "thousandths"] },
+    "dec-x10":          { en: "× and ÷ by 10, 100, 1000", ja: "小数 × ÷ 10・100・1000", make: decX10Make("dec-x10"), check: decCheck, tags: ["mul", "div", "1000"] },
+    "dec-round":        { en: "Rounding decimals", ja: "小数の四捨五入（整数・小数第1位・第2位）", make: decRoundMake("dec-round"), check: decCheck, tags: ["whole", "1dp", "2dp"] },
+    "dec-mul":          { en: "Decimal × whole number", ja: "小数 × 1桁の整数", make: decMulMake("dec-mul"), check: decCheck, tags: ["1dp", "2dp"] },
+    "dec-div":          { en: "Dividing to a decimal answer", ja: "わり算の答えを小数で（余りを出さない）", make: decDivMake("dec-div"), check: decCheck, tags: ["half", "quarter", "fifth"] }
   };
 
-  var G = { TYPES: TYPES, gcd: gcd, fmt: fmt, num: num, divSteps: divSteps };
+  var G = { TYPES: TYPES, gcd: gcd, fmt: fmt, num: num, divSteps: divSteps, decS: decS, dnum: dnum };
   if (typeof module !== "undefined" && module.exports) module.exports = G; else root.MATH_GEN = G;
 })(this);

@@ -7,10 +7,19 @@
  *  - mix: 1回（Start）の配分。単元 id と問題数。short は合計8問、long は合計14問
  */
 window.MATH_CONTENT = {
-  version: "2026-10-30",
+  version: "2026-11-01",
   appName: "Skyline Maths",
 
   units: [
+    {
+      id: "m-decimals",
+      status: "next",
+      when: "Lent preview",
+      title: "Decimals",
+      ja: "小数（位の値・×÷10/100/1000・四捨五入・小数×整数・わり算の答えを小数で）",
+      types: ["dec-place", "dec-x10", "dec-round", "dec-mul", "dec-div"],
+      source: "Year 6 Long Term Plan 2026~27（Lent：Decimals）の予習。knowledge/curriculum-coverage-y6.md の優先1位"
+    },
     {
       id: "m-measure",
       status: "next",
@@ -104,7 +113,7 @@ window.MATH_CONTENT = {
   ],
 
   mix: {
-    short: [["m-measure", 3], ["m-measure-units", 1], ["m-measure-word", 1], ["m-frac-muldiv", 2], ["m-mixed", 1]],
-    long: [["m-measure", 5], ["m-measure-units", 2], ["m-measure-word", 2], ["m-frac-muldiv", 2], ["m-frac-word", 2], ["m-mixed", 1]]
+    short: [["m-measure", 3], ["m-measure-units", 1], ["m-measure-word", 1], ["m-frac-muldiv", 1], ["m-mixed", 1], ["m-decimals", 1]],
+    long: [["m-measure", 5], ["m-measure-units", 2], ["m-measure-word", 2], ["m-frac-muldiv", 1], ["m-frac-word", 1], ["m-mixed", 1], ["m-decimals", 2]]
   }
 };

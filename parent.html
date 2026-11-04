@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>学習の記録（親ページ）</title>
+<link rel="icon" type="image/png" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- 学習アプリ 親ページ（段5＋段7〜9）。設計：learning-cloud/DESIGN.md。見られるかどうかは Supabase の権限（RLS）が決める -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.js"
+  integrity="sha384-BWcjm9OdFth9TbhCxZPdm+gAOUMAzQy9nmTs12ioXdCcbVnJaPMn+fMUoQCLt60R" crossorigin="anonymous"></script>
+<style>
+:root {
+  --ground: #ECEFF3; --surface: #FFFFFF; --ink: #1A2130; --muted: #586577; --line: #D2D9E2;
+  --slate: #2E5A4E; --on-slate: #FFFFFF; --lamp: #F0A43A; --lamp-soft: #FCEBD0;
+  --good: #1F7A55; --good-bg: #E2F2EA; --bad: #B3372F; --bad-bg: #FAE6E3;
+  --body: -apple-system, "Hiragino Sans", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #10151F; --surface: #19202D; --ink: #E6EBF2; --muted: #9BA7B7; --line: #2A3446;
+    --slate: #8FD0BC; --on-slate: #0F1622; --lamp: #F4AE4A; --lamp-soft: #3A2C14;
+    --good: #62C99C; --good-bg: #14302A; --bad: #EF8076; --bad-bg: #3A1C1A;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #10151F; --surface: #19202D; --ink: #E6EBF2; --muted: #9BA7B7; --line: #2A3446;
+  --slate: #8FD0BC; --on-slate: #0F1622; --lamp: #F4AE4A; --lamp-soft: #3A2C14;
+  --good: #62C99C; --good-bg: #14302A; --bad: #EF8076; --bad-bg: #3A1C1A;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ground); color: var(--ink); font: 16px/1.6 var(--body); -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+.wrap { max-width: 560px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 16px; margin: 0 0 8px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px; }
+input, select { width: 100%; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--ground); color: var(--ink); }
+input.code { font-size: 22px; letter-spacing: .3em; text-align: center; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+button { font: inherit; border-radius: 10px; padding: 9px 16px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button.primary { background: var(--slate); color: var(--on-slate); border-color: var(--slate); }
+button:disabled { opacity: .5; }
+.msg { font-size: 14px; }
+.msg.bad { color: var(--bad); }
+.msg.good { color: var(--good); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 7px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; }
+.n { white-space: nowrap; }
+.day { white-space: nowrap; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--line); margin-right: 6px; }
+.dot.on { background: var(--lamp); }
+.stats { display: flex; gap: 10px; flex-wrap: wrap; }
+.stat { flex: 1 1 120px; background: var(--ground); border-radius: 10px; padding: 8px 10px; }
+.stat b { display: block; font-size: 15px; }
+.stat span { font-size: 12px; color: var(--muted); }
+ul.devs { list-style: none; margin: 0; padding: 0; }
+ul.devs li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+details summary { cursor: pointer; font-weight: 600; }
+.pill { font-size: 12px; border-radius: 999px; padding: 1px 8px; background: var(--ground); color: var(--muted); white-space: nowrap; }
+.pill.wait { background: var(--lamp-soft); color: var(--ink); }
+.pill.yes { background: var(--good-bg); color: var(--good); }
+.amt { text-align: right; white-space: nowrap; }
+.amt.minus { color: var(--bad); }
+.btns { display: flex; gap: 6px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header><h1>マイの学習記録</h1><p class="small muted">Rooftop English ・ Skyline Maths（親だけが見られます）</p></header>
+
+  <section class="panel" id="login" hidden>
+    <h2>ログイン</h2>
+    <form id="login-form">
+      <label for="email">メールアドレス</label><input id="email" type="email" autocomplete="username" required>
+      <label for="pw">パスワード</label><input id="pw" type="password" autocomplete="current-password" required>
+      <div class="row"><button class="primary" type="submit">ログイン</button><span class="msg" id="login-msg"></span></div>
+    </form>
+  </section>
+
+  <div id="main" hidden>
+    <section class="panel">
+      <h2>直近7日</h2>
+      <div class="stats" id="sum"></div>
+      <table id="days" style="margin-top:10px"><thead><tr><th>日付</th><th>英語</th><th>算数</th></tr></thead><tbody></tbody></table>
+      <p class="small muted" style="margin:8px 0 0">●＝学習日（どちらかのアプリで1回を最後までやった日）。「回」は最後までやった回数、「問」は1回目の正解／答えた数。日付は iPad の日付です。</p>
+      <div class="row"><button id="reload">更新</button><span class="msg" id="load-msg"></span></div>
+    </section>
+
+    <section class="panel">
+      <h2>ポイントと連続週</h2>
+      <div class="stats" id="pt-sum"></div>
+      <p class="small muted" id="pt-note" style="margin:8px 0 0"></p>
+      <h2 style="margin-top:14px">交換の申請</h2>
+      <ul class="devs" id="reqs"></ul>
+      <p class="msg" id="req-msg"></p>
+      <h2 style="margin-top:14px">週のノルマ</h2>
+      <div class="row" style="margin-top:0">
+        <select id="goal" style="width:auto"><option value="3">週3日</option><option value="4">週4日</option><option value="5">週5日</option></select>
+        <button id="goal-save">変更する</button><span class="msg" id="goal-msg"></span>
+      </div>
+      <p class="small muted" style="margin:6px 0 0">学習日（どちらかのアプリで1回を最後までやった日）が何日あれば達成週か。変えると<b>翌週の月曜から</b>効きます（今週の達成やボーナスは変わりません）。</p>
+    </section>
+
+    <section class="panel">
+      <h2>ごほうび</h2>
+      <ul class="devs" id="rws"></ul>
+      <form id="rw-form">
+        <input type="hidden" id="rw-id">
+        <label for="rw-title">名前（40文字まで）</label><input id="rw-title" maxlength="40" required>
+        <label for="rw-cost">必要なポイント</label><input id="rw-cost" type="number" inputmode="numeric" min="1" max="100000" required>
+        <div class="row"><button class="primary" type="submit" id="rw-submit">追加する</button><button type="button" id="rw-cancel" hidden>やめる</button><span class="msg" id="rw-msg"></span></div>
+      </form>
+      <p class="small muted" style="margin:8px 0 0">目安：正解1問＝1pt（1日100ptまで）、達成週のボーナス 10→15→…最大50pt。「しまう」とマイの画面に出なくなります（消えません）。</p>
+      <details style="margin-top:12px">
+        <summary>ポイントの履歴（直近30件）</summary>
+        <table id="hist" style="margin-top:8px"><thead><tr><th>いつ</th><th>理由</th><th class="amt">pt</th></tr></thead><tbody></tbody></table>
+        <p class="small muted" id="resc" style="margin:8px 0 0"></p>
+      </details>
+    </section>
+
+    <section class="panel">
+      <h2>iPad の登録</h2>
+      <p class="small muted" style="margin:0">iPad のアプリのトップ画面（下の方）に出る6桁のコードを入れます。1台につき最初に1回だけ。</p>
+      <form id="claim-form">
+        <label for="code">登録コード（6桁）</label><input id="code" class="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+        <div id="child-pick" hidden><label for="child">子ども</label><select id="child"></select></div>
+        <div class="row"><button class="primary" type="submit">登録する</button><span class="msg" id="claim-msg"></span></div>
+      </form>
+      <h2 style="margin-top:14px">登録済みの iPad</h2>
+      <ul class="devs" id="devs"></ul>
+      <p class="small muted" style="margin:8px 0 0">Safari のデータを消した等で登録が外れたら、もう一度コードで登録し、古い方は「止める」にしてください。</p>
+    </section>
+
+    <section class="panel">
+      <details>
+        <summary>パスワードを変える</summary>
+        <form id="pw-form">
+          <input type="text" autocomplete="username" id="pw-user" hidden>
+          <label for="pw1">新しいパスワード（8文字以上）</label><input id="pw1" type="password" autocomplete="new-password" minlength="8" required>
+          <label for="pw2">もう一度</label><input id="pw2" type="password" autocomplete="new-password" minlength="8" required>
+          <div class="row"><button class="primary" type="submit">変更する</button><span class="msg" id="pw-msg"></span></div>
+        </form>
+      </details>
+    </section>
+
+    <div class="row" style="justify-content:space-between"><span class="small muted" id="who"></span><button id="logout">ログアウト</button></div>
+  </div>
+
+  <p class="msg bad" id="fatal" hidden></p>
+</div>
+<script>
+(function () {
+  "use strict";
+  var SUPA_URL = "https://hbkhyxtmxfhfnorumzlr.supabase.co";
+  var SUPA_KEY = "sb_publishable_T0SLJV_Tljb4dCejIAU1xA_k81Ig3RE";   // 公開用キー
+  var APPS = { "rooftop-english": "英語", "skyline-maths": "算数" };
+  var WD = ["日", "月", "火", "水", "木", "金", "土"];
+  function $(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  function ymd(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function fmt(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    return (d.getMonth() + 1) + "/" + d.getDate() + "（" + WD[d.getDay()] + "）" + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  }
+  function say(id, text, kind) { var el = $(id); el.textContent = text || ""; el.className = "msg" + (kind ? " " + kind : ""); }
+
+  if (!window.supabase || !window.supabase.createClient) {
+    $("fatal").hidden = false; $("fatal").textContent = "接続の部品を読み込めませんでした。通信を確かめて、開き直してください。";
+    return;
+  }
+  // 子ども側（iPad のアプリ）とログインの保存場所を分ける＝同じ端末で開いても子どものログインを上書きしない
+  var sb = window.supabase.createClient(SUPA_URL, SUPA_KEY, {
+    auth: { storageKey: "learn-cloud-parent-auth", persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+  });
+  var children = [], user = null, gen = 0;   // gen：ログインし直したら古い読み込みの結果を捨てる
+  var summary = null, rewards = [], reqTitles = {};
+  function clearView() {
+    gen++; children = [];
+    $("sum").innerHTML = ""; $("days").querySelector("tbody").innerHTML = ""; $("devs").innerHTML = "";
+    ["pt-sum", "reqs", "rws", "resc", "pt-note"].forEach(function (id) { $(id).innerHTML = ""; });
+    $("hist").querySelector("tbody").innerHTML = ""; resetRewardForm(); summary = null;
+    ["load-msg", "claim-msg", "pw-msg", "req-msg", "goal-msg", "rw-msg"].forEach(function (id) { say(id, ""); });
+  }
+
+  async function boot() {
+    var r = await sb.auth.getSession();
+    var s = r.data && r.data.session;
+    if (s && s.user && !s.user.is_anonymous) { user = s.user; showMain(); }
+    else { if (s) await sb.auth.signOut({ scope: "local" }); $("login").hidden = false; $("main").hidden = true; }
+  }
+
+  $("login-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    say("login-msg", "確認中…");
+    var r = await sb.auth.signInWithPassword({ email: $("email").value.trim(), password: $("pw").value });
+    $("pw").value = "";
+    if (r.error) { say("login-msg", r.error.status === 400 ? "メールかパスワードが違います" : "ログインできませんでした（" + r.error.message + "）", "bad"); return; }
+    user = r.data.user; say("login-msg", ""); showMain();
+  });
+
+  $("logout").addEventListener("click", async function () {
+    await sb.auth.signOut({ scope: "local" });
+    user = null; clearView(); $("main").hidden = true; $("login").hidden = false;
+  });
+
+  async function showMain() {
+    clearView(); var g = gen;
+    $("login").hidden = true; $("main").hidden = false;
+    $("who").textContent = user.email + " でログイン中";
+    $("pw-user").value = user.email || "";
+    var r = await sb.from("children").select("id,name").order("created_at");
+    if (g !== gen) return;
+    if (r.error) { say("load-msg", "読み込めませんでした（" + r.error.message + "）", "bad"); return; }
+    children = r.data || [];
+    if (!children.length) { say("load-msg", "このアカウントは親として登録されていません。", "bad"); return; }
+    $("child").innerHTML = children.map(function (c) { return '<option value="' + esc(c.id) + '">' + esc(c.name) + "</option>"; }).join("");
+    $("child-pick").hidden = children.length < 2;
+    load();
+  }
+
+  // 7日分の記録はページを分けて全部読む（1回1000行まで）。届いた順に読む＝読み込み中に届いた行は後ろに付くだけ。念のため id で重複を除く
+  async function eventsSince(child, from) {
+    var seen = {}, out = [], off = 0, size = 1000;
+    for (;;) {
+      var r = await sb.from("events").select("id,app,kind,item,ok,local_date,received_at")
+        .eq("child_id", child).gte("local_date", from).order("received_at").order("id").range(off, off + size - 1);
+      if (r.error) throw r.error;
+      (r.data || []).forEach(function (e) { if (!seen[e.id]) { seen[e.id] = 1; out.push(e); } });
+      if (!r.data || r.data.length < size) return out;
+      off += size;
+    }
+  }
+
+  async function load() {
+    if (!children.length) return;
+    var g = gen, child = children[0].id;   // 子どもは今は1人（マイ）
+    say("load-msg", "読み込み中…");
+    try {
+      var days = [];
+      for (var i = 0; i < 7; i++) { var d = new Date(); d.setDate(d.getDate() - i); days.push(ymd(d)); }
+      var ps = await sb.rpc("parent_summary", { p_child: child });   // 先にポイントを付けて集計（段7〜9）→ そのあと履歴を読む＝残高と履歴が揃う
+      if (ps.error) throw ps.error;
+      var res = await Promise.all([
+        eventsSince(child, days[6]),
+        sb.from("events").select("received_at").eq("child_id", child).order("received_at", { ascending: false }).limit(1),
+        sb.from("snapshots").select("app,updated_at").eq("child_id", child),
+        sb.from("devices").select("uid,active,registered_at").eq("child_id", child).order("registered_at"),
+        Promise.resolve({ data: ps.data, error: null }),
+        sb.from("points").select("id,reason,period,amount,created_at").eq("child_id", child).order("id", { ascending: false }).limit(30),
+        sb.from("rewards").select("id,title,cost,active,sort").eq("child_id", child).order("sort").order("cost"),
+        sb.from("redemptions").select("id,title,cost,status,requested_at,decided_at").eq("child_id", child).order("requested_at", { ascending: false }).limit(100),
+        sb.from("rescues").select("day,used_on").eq("child_id", child).order("day", { ascending: false }).limit(10)
+      ]);
+      if (g !== gen) return;
+      [1, 2, 3, 4, 5, 6, 7, 8].forEach(function (k) { if (res[k].error) throw res[k].error; });
+      renderPoints(res[4].data, res[5].data || [], res[6].data || [], res[7].data || [], res[8].data || []);
+      renderDays(days, res[0]);
+      var last = res[1].data[0], snaps = {};
+      (res[2].data || []).forEach(function (s) { snaps[s.app] = s.updated_at; });
+      var lit = days.filter(function (d) { return res[0].some(function (e) { return e.kind === "round" && e.local_date === d; }); }).length;
+      $("sum").innerHTML =
+        '<div class="stat"><b>' + lit + ' 日</b><span>直近7日の学習日</span></div>' +
+        '<div class="stat"><b>' + fmt(last && last.received_at) + '</b><span>最後に記録が届いた時刻</span></div>' +
+        '<div class="stat"><b>' + fmt(snaps["rooftop-english"]) + '</b><span>英語の学習状態を保存</span></div>' +
+        '<div class="stat"><b>' + fmt(snaps["skyline-maths"]) + '</b><span>算数の学習状態を保存</span></div>';
+      renderDevices(res[3].data || []);
+      say("load-msg", "");
+    } catch (err) {
+      if (g !== gen) return;
+      say("load-msg", "読み込めませんでした（" + (err.message || err) + "）", "bad");
+    }
+  }
+
+  function renderDays(days, events) {
+    var by = {};
+    events.forEach(function (e) {
+      var k = e.local_date + "|" + e.app;
+      var b = by[k] || (by[k] = { rounds: 0, units: {}, n: 0, right: 0 });
+      if (e.kind === "round") { b.rounds++; if (e.item) b.units[e.item] = 1; }
+      else { b.n++; if (e.ok) b.right++; }
+    });
+    function cell(d, a) {
+      var b = by[d + "|" + a];
+      if (!b) return '<span class="muted">—</span>';
+      var u = Object.keys(b.units);
+      return '<span class="n">' + b.rounds + "回・" + b.right + "/" + b.n + "問</span>" +(u.length ? '<br><span class="small muted">' + esc(u.join(", ")) + "</span>" : "");
+    }
+    $("days").querySelector("tbody").innerHTML = days.map(function (d) {
+      var on = by[d + "|rooftop-english"] && by[d + "|rooftop-english"].rounds || by[d + "|skyline-maths"] && by[d + "|skyline-maths"].rounds;
+      var dt = new Date(d + "T00:00:00");
+      return '<tr><td class="day"><span class="dot' + (on ? " on" : "") + '"></span>' + (dt.getMonth() + 1) + "/" + dt.getDate() + "（" + WD[dt.getDay()] + "）</td><td>" + cell(d, "rooftop-english") + "</td><td>" + cell(d, "skyline-maths") + "</td></tr>";
+    }).join("");
+  }
+
+  function md(d) { var x = new Date(d + "T00:00:00"); return (x.getMonth() + 1) + "/" + x.getDate() + "（" + WD[x.getDay()] + "）"; }
+  function renderPoints(s, hist, rws, reqs, resc) {
+    summary = s; rewards = rws;
+    $("pt-sum").innerHTML =
+      '<div class="stat"><b>' + s.balance + ' pt</b><span>残高（申請中を引くと ' + s.available + ' pt）</span></div>' +
+      '<div class="stat"><b>' + s.streak + ' 週</b><span>連続の達成週（合計 ' + s.best_total + ' 週）</span></div>' +
+      '<div class="stat"><b>' + s.done + ' / ' + s.goal + ' 日' + (s.achieved ? " ✓" : "") + '</b><span>今週の学習日</span></div>' +
+      '<div class="stat"><b>' + s.today_points + ' pt</b><span>今日の正解ポイント</span></div>';
+    $("pt-note").textContent = "今月の救済：残り " + s.rescues_left + " 回（月2回まで）" +
+      (s.rescue_offer ? "。先週があと " + s.rescue_offer.need + " 日足りず、マイの画面に救済の案内が出ています。" : "");
+    $("goal").value = String(s.next_goal || s.goal);
+    $("goal-msg").textContent = s.next_goal && s.next_goal !== s.goal ? "今週は週" + s.goal + "日・来週から週" + s.next_goal + "日" : "";
+    $("goal-msg").className = "msg";
+    reqTitles = {}; reqs.forEach(function (r) { reqTitles[r.id] = r.title; });
+    var st = { requested: ["wait", "申請中"], approved: ["yes", "承認"], rejected: ["", "見送り"], cancelled: ["", "取り消し"] };
+    // 申請中は全部、処理済み（取り消しは除く）は新しい5件
+    var shown = reqs.filter(function (r) { return r.status === "requested"; })
+      .concat(reqs.filter(function (r) { return r.status === "approved" || r.status === "rejected"; }).slice(0, 5));
+    $("reqs").innerHTML = shown.length ? shown.map(function (r) {
+      var p = st[r.status] || ["", r.status];
+      return "<li><span>" + esc(r.title) + "（" + r.cost + " pt）<br><span class=\"small muted\">" + fmt(r.requested_at) + " 申請</span> <span class=\"pill " + p[0] + "\">" + p[1] + "</span></span>" +
+        (r.status === "requested" ? '<span class="btns"><button class="primary" data-rq="' + esc(r.id) + '" data-ok="1">承認</button><button data-rq="' + esc(r.id) + '" data-ok="0">見送る</button></span>' : "") + "</li>";
+    }).join("") : '<li class="muted">申請はありません</li>';
+    $("rws").innerHTML = rws.length ? rws.map(function (r) {
+      return "<li><span>" + esc(r.title) + "（" + r.cost + " pt）" + (r.active ? "" : ' <span class="pill">しまっています</span>') + "</span>" +
+        '<span class="btns"><button data-rw="' + esc(r.id) + '" data-do="edit">変更</button><button data-rw="' + esc(r.id) + '" data-do="toggle">' + (r.active ? "しまう" : "出す") + "</button></span></li>";
+    }).join("") : '<li class="muted">まだありません。下で追加してください</li>';
+    var why = function (h) {
+      return h.reason === "day" ? "正解（" + md(h.period) + "）" : h.reason === "week" ? "達成週ボーナス（" + md(h.period) + "〜の週）"
+        : "交換：" + esc(reqTitles[h.period] || "ごほうび");
+    };
+    $("hist").querySelector("tbody").innerHTML = hist.length ? hist.map(function (h) {
+      return "<tr><td class=\"day\">" + fmt(h.created_at) + "</td><td>" + why(h) + '</td><td class="amt' + (h.amount < 0 ? " minus" : "") + '">' + (h.amount > 0 ? "+" : "") + h.amount + "</td></tr>";
+    }).join("") : '<tr><td colspan="3" class="muted">まだありません</td></tr>';
+    $("resc").textContent = resc.length ? "救済で埋めた日：" + resc.map(function (r) { return md(r.day) + "（" + md(r.used_on) + "に使用）"; }).join("、") : "救済はまだ使っていません。";
+  }
+
+  $("reqs").addEventListener("click", async function (e) {
+    var b = e.target.closest("button[data-rq]"); if (!b) return;
+    var approve = b.getAttribute("data-ok") === "1", id = b.getAttribute("data-rq");
+    var t = reqTitles[id] || "この申請";
+    if (approve && !confirm("「" + t + "」を承認しますか？（残高からポイントが減ります）")) return;
+    if (!approve && !confirm("「" + t + "」を見送りますか？（ポイントは減りません）")) return;
+    b.disabled = true;
+    var r = await sb.rpc("decide_redemption", { p_id: id, p_approve: approve });
+    if (r.error) say("req-msg", "できませんでした（" + r.error.message + "）", "bad");
+    else if (!r.data.ok) say("req-msg", r.data.reason === "not_enough" ? "残高が足りないので承認できません（" + r.data.balance + " pt）。" : "もう処理済みでした（もう1人の親が先に処理した等）。", "bad");
+    else say("req-msg", approve ? "承認しました。" : "見送りました。", "good");
+    load();
+  });
+
+  $("goal-save").addEventListener("click", async function () {
+    if (!children.length) return;
+    var days = +$("goal").value;
+    if (summary && days === (summary.next_goal || summary.goal)) { say("goal-msg", "今と同じです"); return; }
+    if (!confirm("来週の月曜から「週" + days + "日」にしますか？")) return;
+    say("goal-msg", "変更中…");
+    var r = await sb.rpc("set_weekly_goal", { p_child: children[0].id, p_days: days });
+    if (r.error) { say("goal-msg", "変更できませんでした（" + r.error.message + "）", "bad"); return; }
+    load();
+  });
+
+  function resetRewardForm() {
+    $("rw-id").value = ""; $("rw-title").value = ""; $("rw-cost").value = "";
+    $("rw-submit").textContent = "追加する"; $("rw-cancel").hidden = true;
+  }
+  $("rw-cancel").addEventListener("click", function () { resetRewardForm(); say("rw-msg", ""); });
+  $("rws").addEventListener("click", async function (e) {
+    var b = e.target.closest("button[data-rw]"); if (!b) return;
+    var r = rewards.filter(function (x) { return x.id === b.getAttribute("data-rw"); })[0]; if (!r) return;
+    if (b.getAttribute("data-do") === "edit") {
+      $("rw-id").value = r.id; $("rw-title").value = r.title; $("rw-cost").value = r.cost;
+      $("rw-submit").textContent = "変更を保存"; $("rw-cancel").hidden = false; $("rw-title").focus();
+      return;
+    }
+    b.disabled = true;
+    var res = await sb.rpc("set_reward_active", { p_id: r.id, p_active: !r.active });   // 名前・pt には触らない
+    if (res.error) say("rw-msg", "変更できませんでした（" + res.error.message + "）", "bad");
+    load();
+  });
+  $("rw-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    if (!children.length) return;
+    var title = $("rw-title").value.trim(), cost = Math.round(+$("rw-cost").value), rid = $("rw-id").value || null;
+    if (!title || title.length > 40) { say("rw-msg", "名前を40文字までで入れてください", "bad"); return; }
+    if (!(cost >= 1 && cost <= 100000)) { say("rw-msg", "ポイントは1〜100000で入れてください", "bad"); return; }
+    var old = rid ? rewards.filter(function (x) { return x.id === rid; })[0] : null;
+    say("rw-msg", "保存中…");
+    var r = await sb.rpc("save_reward", { p_child: children[0].id, p_id: rid, p_title: title, p_cost: cost,
+      p_active: old ? null : true, p_sort: old ? null : rewards.length });   // 変更では「出す／しまう」と並び順は今のまま
+    if (r.error) { say("rw-msg", "保存できませんでした（" + r.error.message + "）", "bad"); return; }
+    resetRewardForm(); say("rw-msg", rid ? "変更しました（申請中のものは申請した時のポイントのままです）" : "追加しました", "good");
+    load();
+  });
+
+  function renderDevices(list) {
+    if (!list.length) { $("devs").innerHTML = '<li class="muted">まだありません</li>'; return; }
+    $("devs").innerHTML = list.map(function (d) {
+      return "<li><span>iPad（" + esc(d.uid.slice(0, 8)) + "…）<br><span class=\"small muted\">" + fmt(d.registered_at) + " 登録・" + (d.active ? "使用中" : "止めています") + "</span></span>" +
+        '<button data-uid="' + esc(d.uid) + '" data-active="' + (d.active ? "0" : "1") + '">' + (d.active ? "止める" : "使う") + "</button></li>";
+    }).join("");
+  }
+
+  $("devs").addEventListener("click", async function (e) {
+    var b = e.target.closest("button[data-uid]"); if (!b) return;
+    var activate = b.getAttribute("data-active") === "1";
+    if (!activate && !confirm("この iPad からの記録の受け取りを止めますか？（あとで「使う」で戻せます）")) return;
+    b.disabled = true;
+    var r = await sb.rpc("set_device_active", { p_uid: b.getAttribute("data-uid"), p_active: activate });
+    if (r.error) alert("変更できませんでした（" + r.error.message + "）");
+    load();
+  });
+
+  $("claim-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var code = $("code").value.replace(/\D/g, "");
+    if (code.length !== 6) { say("claim-msg", "6桁の数字を入れてください", "bad"); return; }
+    say("claim-msg", "登録中…");
+    var r = await sb.rpc("claim_device", { p_code: code, p_child: $("child").value || children[0].id });
+    if (r.error) { say("claim-msg", "登録できませんでした（" + r.error.message + "）", "bad"); return; }
+    var why = { bad_code: "コードが違うか、期限（30分）が切れています。iPad の画面のコードを確かめてください。",
+      too_many_attempts: "失敗が続いたので、1時間ほど待ってからもう一度どうぞ。",
+      registered_to_other_child: "この iPad は別の子どもに登録済みです。" };
+    if (!r.data || !r.data.ok) { say("claim-msg", why[r.data && r.data.reason] || "登録できませんでした", "bad"); return; }
+    $("code").value = "";
+    say("claim-msg", "登録しました。iPad でアプリを開き直すと、記録が届き始めます。", "good");
+    load();
+  });
+
+  $("pw-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var a = $("pw1").value, b = $("pw2").value;
+    if (a.length < 8) { say("pw-msg", "8文字以上にしてください", "bad"); return; }
+    if (a !== b) { say("pw-msg", "2つが一致しません", "bad"); return; }
+    say("pw-msg", "変更中…");
+    var r = await sb.auth.updateUser({ password: a });
+    $("pw1").value = ""; $("pw2").value = "";
+    if (r.error) { say("pw-msg", "変更できませんでした（" + r.error.message + "）", "bad"); return; }
+    say("pw-msg", "変更しました。次からは新しいパスワードでログインします。", "good");
+  });
+
+  $("reload").addEventListener("click", load);
+  boot();
+})();
+</script>
+</body>
+</html>

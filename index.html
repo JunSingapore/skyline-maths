@@ -112,7 +112,7 @@ p { margin: 0; }
 
 .units { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .unit {
-  display: grid; grid-template-columns: 1fr 150px auto; gap: 8px 20px; align-items: center;
+  display: grid; grid-template-columns: 1fr 250px auto; gap: 8px 20px; align-items: center;
   padding: 18px 0; border-top: 1px solid var(--line);
 }
 .unit:last-child { border-bottom: 1px solid var(--line); }
@@ -196,6 +196,16 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 .msg { font-size: 15px; color: var(--good); font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+.meter strong { color: var(--ink); }
+.learned { font-size: 13px; color: var(--lamp-ink); white-space: nowrap; }
+.alltried { font-size: 14px; color: var(--good); font-weight: 700; }
+.glance { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 20px 26px; display: grid; grid-template-columns: 1fr 1.8fr 1fr; gap: 14px 24px; font-variant-numeric: tabular-nums; }
+.glance .g-row { display: flex; flex-direction: column; gap: 4px; font-size: 17px; }
+.glance .g-topic { display: flex; flex-direction: column; gap: 0; font-size: 15px; padding: 2px 0; }
+.glance .g-name { font-weight: 700; }
+.recent { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-size: 16px; }
+.recent li { display: flex; justify-content: space-between; gap: 12px; }
+@media (max-width: 700px) { .glance { grid-template-columns: 1fr; } }
 .tally { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: -10px; }
 .tally > div { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 20px; display: flex; flex-direction: column; gap: 2px; }
 .tally b { font-family: var(--body); font-weight: 700; font-size: 40px; line-height: 1.05; color: var(--slate); font-variant-numeric: tabular-nums; }
@@ -247,10 +257,12 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 
 <script src="gen.js"></script>
 <script src="content.js"></script>
+<script src="learn-cloud.js"></script>
 <script>
 (function () {
   "use strict";
   var C = window.MATH_CONTENT, G = window.MATH_GEN;
+  var LC = window.LearnCloud || null;   // クラウド保存（無くても学習はできる）
   var app = document.getElementById("app");
   if (!C || !G) { app.innerHTML = '<div class="wrap"><p>問題データ（content.js / gen.js）が読み込めませんでした。</p></div>'; return; }
   var T = G.TYPES;
@@ -473,6 +485,49 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     return '<div class="tally"><div><b>' + n + '</b><span>question' + (n === 1 ? "" : "s") + ' solved so far</span></div>' +
       '<div><b>' + w + '</b><span>round' + (w === 1 ? "" : "s") + ' this week</span></div></div>';
   }
+  /* ── 見ただけで分かる数字（型＝skill 単位）：tried（1回でも出た）・right（最後に正解＝box≥2）・left（まだ出ていない） ── */
+  function unitStats(u) {
+    var types = u.types.filter(function (t) { return T[t]; });
+    var t = 0, r = 0, s = 0;
+    types.forEach(function (id) { var x = rec(id); if (x && x.seen) { t++; if (x.box >= 2) r++; if (mastered(id)) s++; } });
+    return { total: types.length, tried: t, right: r, left: types.length - t, secure: s };
+  }
+  function statLine(st) {
+    return "<strong>" + st.tried + "</strong> of " + st.total + (st.total === 1 ? " skill" : " skills") + " tried · <strong>" + st.right + "</strong> right · <strong>" + st.left + "</strong> left";
+  }
+  function learnedTag(st) { return st.secure ? ' <span class="learned">⭐ ' + st.secure + " learned</span>" : ""; }
+  function allTried(st) { return st.total && !st.left ? '<span class="alltried">All tried! ✨ Missed ones will come back</span>' : ""; }
+  function sessDate(d) { var p = d.split("-"); return +p[2] + " " + MONTHS[+p[1] - 1]; }
+  function glanceHTML(nextU) {
+    var done = S.sessions.filter(function (s) { return s.res && s.res.length; });
+    var t = today(), todays = done.filter(function (s) { return s.d === t; });
+    var tq = 0, tr = 0; todays.forEach(function (s) { tq += s.res.length; s.res.forEach(function (r) { tr += r[1]; }); });
+    var h = '<section class="glance" aria-label="At a glance">';
+    h += '<div class="g-row"><p class="eyebrow">Today</p><p>' + (todays.length
+      ? "✓ <strong>" + tq + "</strong> questions · <strong>" + tr + "</strong> right" + (todays.length > 1 ? ' <span class="muted">(' + todays.length + " rounds)</span>" : "")
+      : '<span class="muted">Not yet today</span>') + "</p></div>";
+    if (nextU.length) {
+      h += '<div class="g-row"><p class="eyebrow">This week’s topics</p>';
+      nextU.forEach(function (u) {
+        var st = unitStats(u);
+        h += '<div class="g-topic"><span class="g-name">' + esc(u.title) + "</span><span>" + statLine(st) + learnedTag(st) + "</span>" + allTried(st) + "</div>";
+      });
+      h += "</div>";
+    }
+    var last = done.slice(-3).reverse();
+    h += '<div class="g-row"><p class="eyebrow">Last 3 rounds</p>';
+    if (!last.length) h += '<p class="muted">No rounds yet</p>';
+    else {
+      h += '<ul class="recent">';
+      last.forEach(function (s) {
+        var ok = s.res.reduce(function (a, r) { return a + r[1]; }, 0);
+        h += "<li><span>" + esc(sessDate(s.d)) + "</span><span><strong>" + ok + "</strong> / " + s.res.length + " right</span></li>";
+      });
+      h += "</ul>";
+    }
+    return h + "</div></section>";
+  }
+
   function homeHTML() {
     var dueN = allTypes.filter(isDue).length;
     var nextU = C.units.filter(function (u) { return u.status === "next"; });
@@ -483,9 +538,11 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       (away === null ? "Pick a round whenever you have time — grab some paper and a pencil."
         : away >= 7 ? "Welcome back. Everything you practised is still here, waiting."
           : thisWeek ? "This week’s window is lit. Another round?" : "A round or two this week keeps the methods sharp.") + "</p></header>";
+    if (LC) h += LC.summaryHTML();   // 連続週・今週あと何日・ポイント（一番目立つ所）
     h += skyline(false);
     h += tally();
     h += '<p class="week-note">' + weeksLit() + " of the last 7 weeks" + (away ? " · last round " + away + (away === 1 ? " day ago" : " days ago") : "") + "</p>";
+    h += glanceHTML(nextU);
     h += '<section class="today" aria-label="Practice"><div style="display:flex;flex-direction:column;gap:8px">';
     h += '<p class="eyebrow">Ready for you</p><h2>' + (nextU.length ? nextU.map(function (u) { return esc(u.title); }).join(" + ") : "A mixed round") + "</h2>";
     h += '<div class="facts"><span><strong>' + sumMix("short") + "</strong> questions, about <strong>15</strong> minutes</span>" +
@@ -495,20 +552,20 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     if (ui.homeMsg) h += '<p class="hintbox" role="status">' + esc(ui.homeMsg) + "</p>";
 
     h += '<section style="display:flex;flex-direction:column;gap:12px"><h3>Pick a topic</h3>';
-    h += '<p class="legend"><span><i class="lrn"></i>Learning = right once</span><span><i></i>Secure = right again in a later round</span></p><ul class="units">';
+    h += '<p class="legend"><span><i></i>Right</span><span><i class="lrn"></i>Tried, not right yet</span><span>⭐ learned = right again in a later round</span></p><ul class="units">';
     C.units.forEach(function (u) {
-      var types = u.types.filter(function (t) { return T[t]; });
-      var m = types.filter(mastered).length, l = types.filter(learning).length;
-      var pct = function (n) { return types.length ? Math.round(n / types.length * 100) : 0; };
+      var st = unitStats(u);
+      var pct = function (n) { return st.total ? Math.round(n / st.total * 100) : 0; };
       var label = u.status === "next" ? (/^This week/i.test(u.when) ? u.when : "Coming up · " + u.when)
         : u.status === "review" ? "Look back · " + u.when : "Anytime";
       h += '<li class="unit"><div class="t"><span class="chip ' + u.status + '">' + esc(label) + '</span><span class="name">' + esc(u.title) + '</span><span class="ja">' + esc(u.ja) + "</span></div>";
-      h += '<div class="meter"><span>' + m + " secure · " + l + ' learning <span class="of">/ ' + types.length + ' skills</span></span><div class="bar two"><i style="width:' + pct(m) + '%"></i><i class="lrn" style="width:' + pct(l) + '%"></i></div></div>';
+      h += '<div class="meter"><span>' + statLine(st) + learnedTag(st) + '</span><div class="bar two"><i style="width:' + pct(st.right) + '%"></i><i class="lrn" style="width:' + pct(st.tried - st.right) + '%"></i></div>' + allTried(st) + "</div>";
       h += '<button class="btn ghost small" data-action="start-unit" data-unit="' + esc(u.id) + '">Practise</button></li>';
     });
     h += "</ul></section>";
+    if (LC) h += LC.rewardsHTML();   // ごほうびの一覧と申請
     h += '<footer class="foot"><button class="linkish" data-action="parent">保護者メモ（For parents）</button><span class="small muted">Topics updated ' + esc(C.version) + "</span></footer>";
-    return h + storageWarn() + "</div>";
+    return h + (LC ? LC.badgeHTML() : "") + storageWarn() + "</div>";
   }
   function storageWarn() {
     return storageOk ? "" : '<p class="note" role="alert">⚠ この端末では記録を保存できていません（プライベートブラウズ等）。通常のタブで開き直してください。</p>';
@@ -558,6 +615,10 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       function opnd(f) { return f[1] === 1 ? "<span>" + f[0] + "</span>" : fracHTML(f[0], f[1]); }
       if (p.kind === "fword") return '<p class="story">' + esc(p.story) + '</p><div class="eq">' + outF + '<span class="lbl">' + esc(p.unit) + "</span></div>";
       return '<div class="eq">' + opnd(p.A) + '<span class="op">' + p.op + "</span>" + opnd(p.B) + '<span class="op">=</span>' + outF + "</div>";
+    }
+    if (p.kind === "dec") {
+      if (p.story) return '<p class="story">' + esc(p.story) + '</p><div class="eq">' + boxHTML(p, "x", true) + "</div>";
+      return '<div class="eq"><span>' + esc(p.text) + '</span><span class="op">=</span>' + boxHTML(p, "x", true) + "</div>";
     }
     if (p.kind === "meas") {
       var ansH = (p.pre ? '<span class="lbl">' + esc(p.unit) + "</span>" : "") + boxHTML(p, "x", true) + (p.pre ? "" : '<span class="lbl">' + esc(p.unit) + "</span>");
@@ -615,6 +676,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     return '<figure class="fig"><svg viewBox="' + vb + '" role="img" aria-label="Shape with its measurements">' + body + '</svg><figcaption>Not drawn to scale</figcaption></figure>';
   }
   function askText(p) {
+    if (p.kind === "dec") return p.type === "dec-place" ? "Write its value as a number." : p.type === "dec-round" ? "Round it. Use the . key for the point." : p.type === "dec-div" ? "Divide. Give a decimal answer — no remainder." : "Work it out. Use the . key for the point.";
     if (p.kind === "meas" && p.conv) return "Convert. Is the new unit bigger or smaller?";
     if (p.kind === "meas") return p.story ? "Read carefully. Use paper for the working." : p.ask === "perimeter" ? "Find the perimeter." : p.ask === "volume" ? "Find the volume." : "Find the area.";
     if (p.kind === "mul") return "Work it out.";
@@ -632,7 +694,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var h = '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">';
     h += '<p class="eyebrow">' + esc(ty.en) + esc(tag) + "</p>";
     h += '<div class="prob"><p class="muted">' + esc(askText(p)) + "</p>" + eqHTML(p);
-    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword" || (p.kind === "meas" && p.shape)) h += '<p class="paper">Use paper for the working.</p>';
+    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword" || p.type === "dec-mul" || p.type === "dec-div" || (p.kind === "meas" && p.shape)) h += '<p class="paper">Use paper for the working.</p>';
     h += "</div>";
     if (ui.done) h += feedbackHTML(p);
     else {
@@ -646,7 +708,8 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var h = '<div class="pad" role="group" aria-label="Number keys">';
     ["7", "8", "9", "4", "5", "6", "1", "2", "3"].forEach(function (d) { h += '<button data-action="key" data-k="' + d + '">' + d + "</button>"; });
     h += '<button class="soft" data-action="back" aria-label="Delete">⌫</button><button data-action="key" data-k="0">0</button>';
-    h += p.fields.length > 1 ? '<button class="soft" data-action="nextbox">Next box</button>' : '<button class="soft" data-action="clear">Clear</button>';
+    h += p.kind === "dec" ? '<button data-action="key" data-k="." aria-label="Decimal point">.</button>'
+      : p.fields.length > 1 ? '<button class="soft" data-action="nextbox">Next box</button>' : '<button class="soft" data-action="clear">Clear</button>';
     h += '<button class="go" data-action="check" style="grid-column:1 / -1">' + (ui.tries ? "Check again" : "Check") + "</button>";
     return h + "</div>";
   }
@@ -668,6 +731,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     if (p.out === "mixed") return a.w + " " + a.n + "/" + a.m;
     if (p.out === "frac") return a.n + "/" + a.m;
     if (p.kind === "meas") return p.pre ? p.unit + G.fmt(a.x) : G.fmt(a.x) + " " + p.unit;
+    if (p.kind === "dec") return G.decS(a.x, p.dp);
     return G.fmt(a.x);
   }
   function givenText(p, vals) {
@@ -691,6 +755,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       sess.log.res.push([a1.type, a1.ok ? 1 : 0]); sess.log.secs = elapsed(); sess.log.d = today();
       if (!a1.ok) sess.log.miss.push({ type: a1.type, q: a1.q, given: a1.given, a: a1.a, code: a1.code });
       record(p, a1.ok);   // ここで保存される（1問ごと）
+      if (LC) LC.answer(p.type, a1.ok);
     }
     if (res.status === "correct") {
       if (ui.tries > 1) { var r = S.items[p.type]; r.hintRight = (r.hintRight || 0) + 1; sess.answers[sess.i].hintRight = true; save(); }
@@ -709,11 +774,14 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     sess.i++; ui = freshUi(); render(); window.scrollTo(0, 0);
   }
 
-  function finish() {
+  function finish(stopped) {
     var res = sess.answers.filter(Boolean);
     sess.log.secs = elapsed();
     if (!res.length) S.sessions = S.sessions.filter(function (x) { return x !== sess.log; });
     save();
+    // 最後までやった回（時間切れ終了も含む・途中でやめた回は数えない）＝学習日
+    if (LC && res.length && (!stopped || elapsed() >= MAX_SECS)) LC.round(sess.mode === "mix" ? "mix" : sess.unit);
+    if (LC) LC.saveState();
     go(res.length ? "end" : "home");
   }
 
@@ -802,8 +870,9 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     C.units.forEach(function (u) { h += "<li><strong>" + esc(u.title) + "</strong>：" + esc(u.source) + "</li>"; });
     h += '</ul><p class="note">数字は毎回プログラムが作り、答えもプログラムが計算します。毎週金曜のニュースレターを読んだあと、AIが単元を差し替えます。</p></section>';
 
+    if (LC) h += LC.panelHTML();
     h += '<section class="panel"><h3>記録の書き出し・バックアップ</h3>';
-    h += '<p class="note">記録はこのiPadの中だけに保存されます。週に1回「コピー」して Claude に貼ると、つまずきを次の週に反映します。機種変更・データ消去の前にもコピーして保存してください。</p>';
+    h += '<p class="note">記録はこのiPadに保存されます（登録済みならクラウドにも送られます）。週に1回「コピー」して Claude に貼ると、つまずきを次の週に反映します。機種変更・データ消去の前にもコピーして保存してください。</p>';
     h += '<textarea id="exp" readonly>' + esc(exportText()) + "</textarea>";
     h += '<div class="row"><button class="btn primary small" data-action="copy">コピー</button>' + (ui.msg ? '<span class="msg">' + esc(ui.msg) + "</span>" : "") + "</div>";
     h += '<p class="note">バックアップから戻す：下に貼り付けて「読み込む」。</p><textarea id="imp" placeholder="ここに貼り付け"></textarea>';
@@ -819,7 +888,10 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     if (ui.done || !ui.active) return;
     var v = ui.vals[ui.active] || "";
     if (v.length >= 7) return;
-    ui.vals[ui.active] = v === "0" ? k : v + k;
+    if (k === ".") {   // 小数点：小数の問題だけ・1つまで。先頭や「0」のあとは「0.」
+      if (sess.queue[sess.i].kind !== "dec" || v.indexOf(".") >= 0) return;
+      ui.vals[ui.active] = (v === "" || v === "0" ? "0" : v) + ".";
+    } else ui.vals[ui.active] = v === "0" ? k : v + k;
     ui.hint = ui.tries ? ui.hint : null;
     render();
   }
@@ -836,7 +908,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var a = el.getAttribute("data-action");
     if (a === "start-mix" || a === "start-long") { var kind = a === "start-long" ? "long" : "short"; var s = buildMix(kind); if (s) startSession(s, kind); }
     else if (a === "start-unit") { var su = buildUnit(el.getAttribute("data-unit")); if (su) startSession(su, "short"); }
-    else if (a === "stop") finish();
+    else if (a === "stop") finish(true);
     else if (a === "home") { sess = null; ui = {}; go("home"); }
     else if (a === "parent") { ui = {}; go("parent"); }
     else if (a === "focus") { ui.active = el.getAttribute("data-f"); render(); }
@@ -862,20 +934,21 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
         if (!obj || obj.app !== APP || !validState(obj.state)) throw new Error("bad");
         var prev = S;
         S = normalize(obj.state); save();
+        if (LC) LC.saveState();
         if (!storageOk) { S = prev; ui = { imsg: "保存できませんでした。記録は元のままです。" }; render(); return; }
         ui = { imsg: "読み込みました" }; render();
       } catch (err) { ui.imsg = "読み込めませんでした。コピーした文字列を全部そのまま貼ってください。"; render(); }
     }
     else if (a === "reset") { ui.resetArmed = true; render(); }
     else if (a === "reset-cancel") { ui.resetArmed = false; render(); }
-    else if (a === "reset-confirm") { S = fresh(); save(); ui = { msg: "" }; go("home"); }
+    else if (a === "reset-confirm") { S = fresh(); S.resetAt = Date.now(); save(); if (LC) LC.saveState(); ui = { msg: "" }; go("home"); }
   });
 
   // 外付けキーボード（Mac での確認用・iPad のキーボードカバーにも）
   document.addEventListener("keydown", function (e) {
     if (view !== "quiz" || !sess) return;
     if (ui.done) { if (e.key === "Enter") { e.preventDefault(); advance(); } return; }
-    if (/^[0-9]$/.test(e.key)) { e.preventDefault(); typeKey(e.key); }
+    if (/^[0-9.]$/.test(e.key)) { e.preventDefault(); typeKey(e.key); }
     else if (e.key === "Backspace") { e.preventDefault(); backKey(); }
     else if (e.key === "Tab" || e.key === "/" || e.key === "r") { e.preventDefault(); nextBox(); }
     else if (e.key === "Enter") { e.preventDefault(); check(); }
@@ -888,6 +961,8 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   }, 1000);
 
   try { localStorage.setItem(KEY + "-probe", "1"); localStorage.removeItem(KEY + "-probe"); } catch (e) { storageOk = false; }
+  if (LC) LC.init({ app: APP, getState: function () { return S; }, canApply: function () { return view !== "quiz"; },
+    setState: function (s) { S = normalize(s); save(); if (view !== "quiz") render(); } });
   render();
 })();
 </script>
