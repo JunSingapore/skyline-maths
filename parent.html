@@ -104,7 +104,7 @@ details summary { cursor: pointer; font-weight: 600; }
         <select id="goal" style="width:auto"><option value="3">週3日</option><option value="4">週4日</option><option value="5">週5日</option></select>
         <button id="goal-save">変更する</button><span class="msg" id="goal-msg"></span>
       </div>
-      <p class="small muted" style="margin:6px 0 0">学習日（どちらかのアプリで1回を最後までやった日）が何日あれば達成週か。変えると<b>翌週の月曜から</b>効きます（今週の達成やボーナスは変わりません）。</p>
+      <p class="small muted" style="margin:6px 0 0">英語・算数<b>それぞれ</b>の学習日（そのアプリで1回を最後までやった日）が何日あれば達成週か（2026-11-09 の週から。それより前の週は、どちらかのアプリで学習した日数で数えています）。救済1回は1日分で、英語・算数の両方に数えます。変えると<b>翌週の月曜から</b>効きます（今週の達成やボーナスは変わりません）。</p>
     </section>
 
     <section class="panel">
@@ -305,10 +305,12 @@ details summary { cursor: pointer; font-weight: 600; }
     $("pt-sum").innerHTML =
       '<div class="stat"><b>' + s.balance + ' pt</b><span>残高（申請中を引くと ' + s.available + ' pt）</span></div>' +
       '<div class="stat"><b>' + s.streak + ' 週</b><span>連続の達成週（合計 ' + s.best_total + ' 週）</span></div>' +
-      '<div class="stat"><b>' + s.done + ' / ' + s.goal + ' 日' + (s.achieved ? " ✓" : "") + '</b><span>今週の学習日</span></div>' +
+      (s.per_subject && s.done_by_app
+        ? '<div class="stat"><b>英' + s.done_by_app["rooftop-english"] + '・算' + s.done_by_app["skyline-maths"] + ' / ' + s.goal + ' 日' + (s.achieved ? " ✓" : "") + '</b><span>今週の学習日（英語・算数それぞれ）</span></div>'
+        : '<div class="stat"><b>' + s.done + ' / ' + s.goal + ' 日' + (s.achieved ? " ✓" : "") + '</b><span>今週の学習日</span></div>') +
       '<div class="stat"><b>' + s.today_points + ' pt</b><span>今日の正解ポイント</span></div>';
     $("pt-note").textContent = "今月の救済：残り " + s.rescues_left + " 回（月2回まで）" +
-      (s.rescue_offer ? "。先週があと " + s.rescue_offer.need + " 日足りず、マイの画面に救済の案内が出ています。" : "");
+      (s.rescue_offer ? "。先週は救済 " + s.rescue_offer.need + " 回で達成になります（マイの画面に案内が出ています）。" : "");
     $("goal").value = String(s.next_goal || s.goal);
     $("goal-msg").textContent = s.next_goal && s.next_goal !== s.goal ? "今週は週" + s.goal + "日・来週から週" + s.next_goal + "日" : "";
     $("goal-msg").className = "msg";

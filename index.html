@@ -239,6 +239,10 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 .box.no { border-color: var(--bad); background: var(--bad-bg); }
 .box .ph { color: var(--muted); opacity: 0.5; }
 .paper { font-size: 15px; color: var(--muted); }
+/* 途中計算エリア：指・ペンで自由に書ける。保存・送信はしない。次の問題で消える */
+.scratch { display: flex; flex-direction: column; gap: 6px; }
+.scratch-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+.scratch canvas { display: block; width: 100%; height: 300px; background: var(--surface); border: 1px dashed var(--line); border-radius: 18px; touch-action: none; cursor: crosshair; }
 .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 420px; margin: 0 auto; }
 .pad button {
   min-height: 62px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface);
@@ -434,7 +438,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   function go(v) { view = v; render(); window.scrollTo(0, 0); }
 
   function render() {
-    if (view === "quiz") app.innerHTML = quizHTML();
+    if (view === "quiz") { app.innerHTML = quizHTML(); placeScratch(); }
     else if (view === "end") app.innerHTML = endHTML();
     else if (view === "parent") app.innerHTML = parentHTML();
     else app.innerHTML = homeHTML();
@@ -442,6 +446,46 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       var w = app.querySelectorAll(".win.pending"); for (var i = 0; i < w.length; i++) w[i].classList.add("on");
     }, 250);
   }
+
+  /* ── 途中計算エリア：canvas は1枚を使い回す（render で画面を作り直しても書いた線が残る）。問題が替わったら消す ── */
+  var scratch = null, scratchKey = null;
+  function scratchCanvas() {
+    if (scratch) return scratch;
+    var c = document.createElement("canvas"), drawing = false, last = null;
+    c.setAttribute("aria-label", "Working space — write with your finger or pencil");
+    function pt(e) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    function line(a, b, w) {
+      var g = c.getContext("2d"), k = c.width / (c.getBoundingClientRect().width || 1);
+      g.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim() || "#1A2130";
+      g.lineWidth = w * k; g.lineCap = "round"; g.lineJoin = "round";
+      g.beginPath(); g.moveTo(a.x * k, a.y * k); g.lineTo(b.x * k, b.y * k); g.stroke();
+    }
+    function width(e) { return e.pointerType === "pen" && e.pressure ? 1.5 + e.pressure * 2.5 : 3; }
+    c.addEventListener("pointerdown", function (e) { drawing = true; last = pt(e); try { c.setPointerCapture(e.pointerId); } catch (x) {} line(last, last, width(e)); e.preventDefault(); });
+    c.addEventListener("pointermove", function (e) { if (!drawing) return; var p = pt(e); line(last, p, width(e)); last = p; e.preventDefault(); });
+    function up() { drawing = false; last = null; }
+    c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up); c.addEventListener("pointerleave", up);
+    return (scratch = c);
+  }
+  function fitScratch(clear) {
+    var c = scratchCanvas(), r = c.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    var w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+    if (!w || !h) return;
+    if (c.width !== w || c.height !== h) {
+      var old = c.width && c.height && !clear ? c.getContext("2d").getImageData(0, 0, c.width, c.height) : null;
+      c.width = w; c.height = h;   // 大きさが変わると中身が消えるので、書いた線を左上から戻す（向きを変えた時）
+      if (old) c.getContext("2d").putImageData(old, 0, 0);
+    } else if (clear) c.getContext("2d").clearRect(0, 0, w, h);
+  }
+  function placeScratch() {
+    var slot = document.getElementById("scratch-slot");
+    if (!slot || !sess) return;
+    slot.appendChild(scratchCanvas());
+    var key = sess.start + ":" + sess.i;
+    fitScratch(key !== scratchKey);
+    scratchKey = key;
+  }
+  window.addEventListener("resize", function () { if (view === "quiz" && scratch && scratch.isConnected) fitScratch(false); });
 
   /* ── skyline: 直近7週。練習した週の窓に明かりが灯る ── */
   function weekStart(d) { var x = new Date(d); var wd = (x.getDay() + 6) % 7; x.setDate(x.getDate() - wd); x.setHours(0, 0, 0, 0); return x; }
@@ -694,8 +738,9 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var h = '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">';
     h += '<p class="eyebrow">' + esc(ty.en) + esc(tag) + "</p>";
     h += '<div class="prob"><p class="muted">' + esc(askText(p)) + "</p>" + eqHTML(p);
-    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword" || p.type === "dec-mul" || p.type === "dec-div" || (p.kind === "meas" && p.shape)) h += '<p class="paper">Use paper for the working.</p>';
+    if (p.kind === "div" || p.kind === "mul" || p.kind === "fop" || p.kind === "mop" || p.kind === "fmd" || p.kind === "fword" || p.type === "dec-mul" || p.type === "dec-div" || (p.kind === "meas" && p.shape)) h += '<p class="paper">Use the working space below (or paper).</p>';
     h += "</div>";
+    h += '<div class="scratch"><div class="scratch-head"><span>Working space ✏️</span><button class="linkish" data-action="scratch-clear">Clear working</button></div><div id="scratch-slot"></div></div>';
     if (ui.done) h += feedbackHTML(p);
     else {
       if (ui.hint) h += '<div class="hintbox" role="status"><p>' + esc(ui.hint.en) + '</p><p class="ja-line">' + esc(ui.hint.ja) + "</p></div>";
@@ -809,7 +854,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       h += '</ul><p class="muted small">These skills come back next time — with new numbers.</p></section>';
     }
     h += '<div class="row"><button class="btn primary" data-action="start-mix">Another round</button>' +
-      '<button class="btn ghost" data-action="home">Back to the rooftops</button></div></div>';
+      '<button class="btn ghost" data-action="home">Back to the skyline</button></div></div>';
     return h;
   }
 
@@ -915,6 +960,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     else if (a === "key") typeKey(el.getAttribute("data-k"));
     else if (a === "back") backKey();
     else if (a === "clear") { ui.vals = {}; render(); }
+    else if (a === "scratch-clear") { if (scratch) fitScratch(true); }
     else if (a === "nextbox") nextBox();
     else if (a === "check") check();
     else if (a === "show") { ui.done = true; ui.result = "wrong"; render(); }

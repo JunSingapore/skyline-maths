@@ -33,7 +33,7 @@
   var K_BASE = "learn-cloud-base:";    // + app → { uid, v }：手元の状態の元になったサーバー版番号
   var K_SYNC = "learn-cloud-sync";     // { sent, snap: { app: 時刻 } }：最後に同期した時刻
   var K_SUM = "learn-cloud-sum";       // { uid, at, data }：最後に受け取った child_summary（開いた瞬間に出す）
-  var K_SENT = "learn-cloud-sent";     // { uid, dates }：送ったがまだ集計に入っていない回の日付（取り直すまで表示に足す）
+  var K_SENT = "learn-cloud-sent";     // { uid, dates: ["app|日付"] }：送ったがまだ集計に入っていない回（取り直すまで表示に足す）
   var K_ASK = "learn-cloud-ask";       // { uid, ids: { ごほうびid: 申請id } }：返事待ちの申請 id（開き直しても同じ申請になる）
   var SUM_EVERY = 120000;              // 何も送っていなくても、これより古ければ取り直す（親の承認・ノルマ変更・週替わり）
   var SUM_TRUST = 600000;              // これより新しい集計なら、今週はサーバーの週（シンガポール日付）を正とする
@@ -125,7 +125,7 @@
           throw res.error;
         }
         var sent = getJSON(K_SENT), sd = sent && sent.uid === st.uid ? sent.dates : [];
-        batch.forEach(function (r) { if (r.kind === "round" && sd.indexOf(r.local_date) < 0) sd.push(r.local_date); });
+        batch.forEach(function (r) { var k = r.app + "|" + r.local_date; if (r.kind === "round" && sd.indexOf(k) < 0) sd.push(k); });
         setJSON(K_SENT, { uid: st.uid, dates: sd.slice(-14) });   // 集計を取り直すまで、送った回の日も今週に出す
         batch.forEach(function (r) { del(Q + r.id); });   // 送った行だけ消す（送信中に積まれた行は残る）
         markSync("sent");
@@ -377,24 +377,43 @@
     var today = fresh && s.today ? s.today : ymd(new Date(now()));
     var same = s.week === week;
     var gap = same ? 0 : Math.round((mon - new Date(s.week + "T12:00:00")) / 604800000);   // 集計から何週たったか
-    var real = {}, rescueD = {}, sync = {};
+    // 教科別（04）：英語・算数それぞれノルマ日数で達成。切り替え前の週・04 未実行のサーバーは合計で数える
+    var perSub = !!s.per_subject_from && week >= s.per_subject_from;
+    var real = {}, rescueD = {}, sync = {}, byApp = {};
+    APPS.forEach(function (a) { byApp[a] = { real: {}, sync: {} }; });
     if (same) {
       (s.real_days || []).forEach(function (d) { real[d] = 1; });
       (s.rescue_days || []).forEach(function (d) { rescueD[d] = 1; });
+      var rb = s.real_days_by_app || {};
+      APPS.forEach(function (a) { (rb[a] || []).forEach(function (d) { byApp[a].real[d] = 1; }); });
     }
     var days = [];
     for (var i = 0; i < 7; i++) { var x = new Date(mon); x.setDate(mon.getDate() + i); days.push(ymd(x)); }
-    var sent = getJSON(K_SENT);
-    pending().filter(function (r) { return mine(r) && r.kind === "round"; }).map(function (r) { return r.local_date; })
-      .concat(sent && sent.uid === getJSON(K_REG).uid ? sent.dates || [] : [])
-      .forEach(function (d) { if (days.indexOf(d) >= 0 && !real[d] && d <= today) sync[d] = 1; });
-    var done = days.filter(function (d) { return real[d] || rescueD[d] || sync[d]; }).length;
-    var goal = s.goal || 3;
+    var sent = getJSON(K_SENT), reg = getJSON(K_REG);
+    var local = pending().filter(function (r) { return mine(r) && r.kind === "round"; }).map(function (r) { return { a: r.app, d: r.local_date }; })
+      .concat((sent && reg && sent.uid === reg.uid ? sent.dates || [] : []).map(function (k) {
+        var p = String(k).split("|"); return p.length === 2 ? { a: p[0], d: p[1] } : { a: null, d: p[0] };
+      }));
+    local.forEach(function (x) {
+      if (days.indexOf(x.d) < 0 || x.d > today) return;
+      if (!real[x.d]) sync[x.d] = 1;
+      if (x.a && byApp[x.a] && !byApp[x.a].real[x.d]) byApp[x.a].sync[x.d] = 1;
+    });
+    function count(r, y) { return days.filter(function (d) { return r[d] || rescueD[d] || y[d]; }).length; }
+    var goal = s.goal || 3, subs = null, done;
+    if (perSub) {
+      subs = APPS.map(function (a) {
+        var b = byApp[a], n = count(b.real, b.sync);
+        return { app: a, real: b.real, sync: b.sync, done: n, left: Math.max(goal - n, 0), todayDone: !!(b.real[today] || b.sync[today]) };
+      });
+      done = Math.min(subs[0].done, subs[1].done);
+    } else done = count(real, sync);
     var streak = same ? s.streak : (gap === 1 && s.achieved ? s.streak : 0);   // 1週前に達成していた連続だけ引き継ぐ
-    return { s: s, days: days, today: today, real: real, rescue: rescueD, sync: sync, done: done, goal: goal,
+    return { s: s, days: days, today: today, real: real, rescue: rescueD, sync: sync, done: done, goal: goal, subs: subs,
       left: Math.max(goal - done, 0), achieved: done >= goal, streak: streak || 0,
       todayDone: !!(real[today] || sync[today]), todayPts: s.today === today ? s.today_points || 0 : 0,
-      syncing: Object.keys(sync).length > 0, offer: same ? s.rescue_offer : null,
+      syncing: Object.keys(sync).length > 0 || (subs || []).some(function (x) { return Object.keys(x.sync).length > 0; }),
+      offer: same ? s.rescue_offer : null,
       bonus: same ? s.next_bonus : gap === 1 && s.achieved ? Math.min((s.streak || 0) * 5 + 10, 50) : 10 };
   }
   function summaryInner() {
@@ -405,16 +424,26 @@
     h += '<div class="lc-top"><div class="lc-big"><b>' + (v.streak ? "🔥 " + v.streak : risk ? "🔥 " + risk + "?" : "0") + "</b><span>" +
       (risk ? "week streak — save it below!" : v.streak === 1 ? "week streak" : v.streak ? "weeks in a row" : "week streak — start one this week!") + '</span></div>' +
       '<div class="lc-big lc-right"><b>' + (s.balance || 0) + "</b><span>points</span></div></div>";
-    h += '<ol class="lc-days" aria-label="This week">' + v.days.map(function (d, i) {
-      var c = v.real[d] ? "on" : v.sync[d] ? "on sync" : v.rescue[d] ? "saver" : "";
-      return '<li class="' + c + (d === v.today ? " now" : "") + '"><i>' + (v.real[d] || v.sync[d] ? "★" : v.rescue[d] ? "♥" : "") + "</i>" + WD[i] + "</li>";
-    }).join("") + "</ol>";
+    function row(real, sync, label) {
+      return '<ol class="lc-days" aria-label="' + (label ? label + " this week" : "This week") + '">' + (label ? '<li class="lc-lab">' + label + "</li>" : "") + v.days.map(function (d, i) {
+        var c = real[d] ? "on" : sync[d] ? "on sync" : v.rescue[d] ? "saver" : "";
+        return '<li class="' + c + (d === v.today ? " now" : "") + '"><i>' + (real[d] || sync[d] ? "★" : v.rescue[d] ? "♥" : "") + "</i>" + WD[i] + "</li>";
+      }).join("") + "</ol>";
+    }
+    var NAME = { "rooftop-english": "English", "skyline-maths": "Maths" };
+    if (v.subs) v.subs.forEach(function (x) { h += row(x.real, x.sync, NAME[x.app]); });
+    else h += row(v.real, v.sync, "");
     var bonus = v.bonus || 10;
     h += '<p class="lc-line">' + (v.achieved
       ? "This week's goal is done! " + (v.syncing ? "(+" + bonus + " bonus when it syncs)" : "+" + bonus + " bonus points 🎉")
-      : "This week <b>" + v.done + " / " + v.goal + "</b> days — <b>" + v.left + " more</b> to go" + (v.left === 1 ? "!" : "") + " · bonus +" + bonus) + "</p>";
-    h += '<p class="lc-line small">' + (v.todayDone ? "Today: done ✓" + (v.todayPts ? " · " + v.todayPts + " pts" : "") : "Today: not yet — one round lights up today") +
-      (v.syncing ? ' · <span class="muted">syncing…</span>' : "") + "</p>";
+      : v.subs
+        ? "This week " + v.subs.map(function (x) { return NAME[x.app] + " <b>" + x.done + " / " + v.goal + "</b>" + (x.left ? "" : " ✓"); }).join(" · ") +
+          " — " + v.subs.filter(function (x) { return x.left; }).map(function (x) { return "<b>" + x.left + " more</b> " + NAME[x.app]; }).join(" + ") + " · bonus +" + bonus
+        : "This week <b>" + v.done + " / " + v.goal + "</b> days — <b>" + v.left + " more</b> to go" + (v.left === 1 ? "!" : "") + " · bonus +" + bonus) + "</p>";
+    var todayTxt = v.subs
+      ? "Today: " + v.subs.map(function (x) { return NAME[x.app] + (x.todayDone ? " ✓" : " — not yet"); }).join(" · ") + (v.todayPts ? " · " + v.todayPts + " pts" : "")
+      : v.todayDone ? "Today: done ✓" + (v.todayPts ? " · " + v.todayPts + " pts" : "") : "Today: not yet — one round lights up today";
+    h += '<p class="lc-line small">' + todayTxt + (v.syncing ? ' · <span class="muted">syncing…</span>' : "") + "</p>";
     if (v.offer) {
       h += '<div class="lc-offer"><p>Last week needed ' + v.offer.need + " more day" + (v.offer.need > 1 ? "s" : "") + ". " +
         (v.offer.keeps ? "Use " + (v.offer.need > 1 ? v.offer.need + " streak savers" : "a streak saver") + " to keep your " + v.offer.keeps + "-week streak?" : "Use " + (v.offer.need > 1 ? v.offer.need + " streak savers" : "a streak saver") + " to finish last week?") +
@@ -456,6 +485,7 @@
     ".lc-big b{display:block;font-size:34px;line-height:1.1;font-family:var(--display,inherit)}.lc-big span{font-size:14px;color:var(--muted,#586577)}.lc-right{text-align:right}" +
     ".lc-days{list-style:none;display:flex;gap:6px;margin:0;padding:0}.lc-days li{flex:1;text-align:center;font-size:12px;color:var(--muted,#586577)}" +
     ".lc-days i{display:block;height:30px;line-height:30px;border-radius:8px;background:var(--ground,#ECEFF3);font-style:normal;font-size:16px;margin-bottom:2px}" +
+    ".lc-days .lc-lab{flex:0 0 58px;align-self:center;text-align:left;font-size:13px;font-weight:700;color:var(--ink,#1A2130);padding-bottom:16px}" +
     ".lc-days .on i{background:var(--lamp,#F0A43A);color:var(--on-slate,#fff)}.lc-days .sync i{opacity:.6}" +
     ".lc-days .saver i{background:var(--lamp-soft,#FCEBD0);color:var(--lamp-ink,#8A5200)}.lc-days .now{font-weight:700;color:var(--ink,#1A2130)}.lc-days .now i{outline:2px solid var(--ink,#1A2130);outline-offset:1px}" +
     ".lc-line{margin:0}.lc-offer{background:var(--lamp-soft,#FCEBD0);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;align-items:flex-start}.lc-offer p{margin:0}" +
