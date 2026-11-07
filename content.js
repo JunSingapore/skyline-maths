@@ -7,7 +7,7 @@
  *  - mix: 1回（Start）の配分。単元 id と問題数。short は合計8問、long は合計14問
  */
 window.MATH_CONTENT = {
-  version: "2026-11-01",
+  version: "2026-11-07",
   appName: "Skyline Maths",
 
   units: [
@@ -23,7 +23,7 @@ window.MATH_CONTENT = {
     {
       id: "m-measure",
       status: "next",
-      when: "Week of 2 Nov",
+      when: "Weeks of 2 & 9 Nov",
       title: "Perimeter, area & volume",
       ja: "測定（周の長さ・長方形/L字・平行四辺形・三角形の面積・直方体の体積）",
       types: ["meas-perimeter", "meas-area-rect", "meas-area-para", "meas-area-tri", "meas-volume"],
@@ -32,16 +32,16 @@ window.MATH_CONTENT = {
     {
       id: "m-measure-units",
       status: "next",
-      when: "Week of 2 Nov",
+      when: "Week of 9 Nov",
       title: "Converting units",
-      ja: "単位の換算（長さ・面積 cm²/m²/mm²・体積 cm³/m³/mm³・リットル）",
-      types: ["meas-convert"],
-      source: "Michaelmas W10 ニュースレター（10/30・/news/13302）の Key Vocabulary（cm³, m³, mm³, km³）＋英国 Y6 の測定（単位の換算、体積を他の単位へ広げる）"
+      ja: "単位の換算（長さ・面積・体積・リットル／重さ kg・g・t／時間 週・日・時・分・秒）",
+      types: ["meas-convert", "meas-convert-mt"],
+      source: "Michaelmas W10 ニュースレター（10/30・/news/13302）の Key Vocabulary（cm³, m³, mm³, km³）＋W11（11/5・/news/13508）：長さ・重さ・体積・時間の換算（小数第3位まで）"
     },
     {
       id: "m-measure-word",
       status: "next",
-      when: "Week of 2 Nov",
+      when: "Weeks of 2 & 9 Nov",
       title: "Measurement word problems",
       ja: "測定の文章題（PMC 風：面積から辺・正方形・立方体を詰める・フェンス代）",
       types: ["meas-word"],
@@ -113,7 +113,7 @@ window.MATH_CONTENT = {
   ],
 
   mix: {
-    short: [["m-measure", 3], ["m-measure-units", 1], ["m-measure-word", 1], ["m-frac-muldiv", 1], ["m-mixed", 1], ["m-decimals", 1]],
-    long: [["m-measure", 5], ["m-measure-units", 2], ["m-measure-word", 2], ["m-frac-muldiv", 1], ["m-frac-word", 1], ["m-mixed", 1], ["m-decimals", 2]]
+    short: [["m-measure", 2], ["m-measure-units", 2], ["m-measure-word", 1], ["m-frac-muldiv", 1], ["m-mixed", 1], ["m-decimals", 1]],
+    long: [["m-measure", 4], ["m-measure-units", 3], ["m-measure-word", 2], ["m-frac-muldiv", 1], ["m-frac-word", 1], ["m-mixed", 1], ["m-decimals", 2]]
   }
 };

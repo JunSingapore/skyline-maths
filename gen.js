@@ -545,14 +545,16 @@
   var CONV = {
     length: [["m", "cm", 100], ["km", "m", 1000], ["cm", "mm", 10]],
     area: [["m²", "cm²", 10000, 100], ["cm²", "mm²", 100, 10]],
-    volume: [["m³", "cm³", 1000000, 100], ["cm³", "mm³", 1000, 10], ["litres", "cm³", 1000]]
+    volume: [["m³", "cm³", 1000000, 100], ["cm³", "mm³", 1000, 10], ["litres", "cm³", 1000]],
+    mass: [["kg", "g", 1000], ["tonnes", "kg", 1000]],
+    time: [["hours", "minutes", 60], ["minutes", "seconds", 60], ["days", "hours", 24], ["weeks", "days", 7]]
   };
   function convMeasMake(id) {
     return function (prefTag) {
-      var tag = prefTag || pick(["length", "area", "volume"]), c = pick(CONV[tag]);
-      var down = tag === "length" ? Math.random() < 0.5 : Math.random() < 0.75;   // down＝大きい単位 → 小さい単位（かける）
-      var v = tag === "volume" && c[2] === 1000000 ? rnd(2, 9) : rnd(2, tag === "length" ? 60 : 25);
-      var big = c[0], small = c[1], k = c[2], one = "1 " + big.replace(/^litres$/, "litre") + " = " + fmt(k) + " " + small;
+      var tag = prefTag || pick(id === "meas-convert-mt" ? ["mass", "time"] : ["length", "area", "volume"]), c = pick(CONV[tag]);
+      var down = tag === "length" || tag === "mass" || tag === "time" ? Math.random() < 0.5 : Math.random() < 0.75;   // down＝大きい単位 → 小さい単位（かける）
+      var v = tag === "volume" && c[2] === 1000000 ? rnd(2, 9) : tag === "time" ? rnd(2, c[2] === 7 ? 9 : 12) : rnd(2, tag === "length" ? 60 : 25);
+      var big = c[0], small = c[1], k = c[2], one = "1 " + big.replace(/^(litre|tonne|hour|minute|day|week)s$/, "$1") + " = " + fmt(k) + " " + small;
       var su = small.replace(/[²³]/, ""), bu = big.replace(/[²³]/, "");
       var why = c[3] ? "  (a 1 " + bu + (tag === "volume" ? " cube" : " square") + " is " + c[3] + " " + su + " × " + c[3] + " " + su + (tag === "volume" ? " × " + c[3] + " " + su : "") + ")" : "";
       var from = down ? v : v * k, ans = down ? v * k : v;
@@ -632,12 +634,13 @@
     } else if (p.type === "meas-volume") {
       T_(d.l + d.w + d.h, "added", "For volume, multiply all three lengths.", "体積は3つの長さをかけるよ。");
       [d.l * d.w, d.l * d.h, d.w * d.h].forEach(function (v) { T_(v, "two-dims", "That uses only two lengths (that is an area). Volume needs all three.", "2つの長さだけだと面積になるよ。体積は3つ全部かけよう。"); });
-    } else if (p.type === "meas-convert") {
+    } else if (p.type === "meas-convert" || p.type === "meas-convert-mt") {
       var f = d.down ? function (k) { return d.v * k; } : function (k) { return d.v % k === 0 ? d.v / k : -1; };
       T_(d.down ? (d.v % d.k === 0 ? d.v / d.k : -1) : d.v * d.k, "wrong-way", "Check the direction: is the new unit bigger or smaller? Should the number get bigger or smaller?", "単位が大きくなる？小さくなる？ 数は増える？減る？ 向きを確かめよう。");
       if (d.side) { T_(f(d.side), "length-factor", "That uses the length change. For " + (p.tag === "area" ? "area, it happens in 2 directions" : "volume, it happens in 3 directions") + ".", "それは長さの換算だね。" + (p.tag === "area" ? "面積はたて・横の2方向" : "体積はたて・横・高さの3方向") + "に効くよ。");
         if (p.tag === "volume") T_(f(d.side * d.side), "length-factor", "That is only 2 directions. Volume has 3: length, width and height.", "それは2方向分だね。体積はたて・横・高さの3方向だよ。"); }
-      [10, 100, 1000].forEach(function (k) { if (k !== d.k) T_(f(k), "wrong-factor", "Check how many small units make one big unit.", "大きい単位1つは、小さい単位いくつ分か確かめよう。"); });
+      if (p.tag === "time") { if (d.k !== 100) T_(f(100), "time-100", "Time does not work in 100s! How many minutes in an hour? Seconds in a minute? Hours in a day? Days in a week?", "時間は100ずつではないよ。1時間＝60分、1分＝60秒、1日＝24時間、1週間＝7日。"); }
+      else [10, 100, 1000].forEach(function (k) { if (k !== d.k) T_(f(k), "wrong-factor", "Check how many small units make one big unit.", "大きい単位1つは、小さい単位いくつ分か確かめよう。"); });
     } else if (p.tag === "missing-side") {
       T_(d.A - d.w, "subtracted", "Area is length × width. Which number times " + d.w + " makes the area?", "面積＝たて × 横。" + d.w + " に何をかけると面積になるかな？");
       T_(d.A * d.w, "multiplied", "The other side must be shorter than the area number. Try dividing.", "答えは面積の数より小さいはず。わり算を考えよう。");
@@ -847,6 +850,7 @@
     "meas-volume":      { en: "Volume of a cuboid", ja: "直方体の体積（cm³・m³・mm³）", make: volMake("meas-volume"), check: measCheck, tags: ["cm", "m", "mm"] },
     "meas-word":        { en: "Measurement word problems", ja: "測定の文章題", make: mwordMake("meas-word"), check: measCheck, tags: ["missing-side", "square", "cubes", "fence"] },
     "meas-convert":     { en: "Converting units", ja: "単位の換算（長さ・面積・体積）", make: convMeasMake("meas-convert"), check: measCheck, tags: ["length", "area", "volume"] },
+    "meas-convert-mt":  { en: "Converting mass & time", ja: "単位の換算（重さ kg・g・t／時間 週・日・時・分・秒）", make: convMeasMake("meas-convert-mt"), check: measCheck, tags: ["mass", "time"] },
     "dec-place":        { en: "Decimal place value", ja: "小数の位（その数字の値）", make: decPlaceMake("dec-place"), check: decCheck, tags: ["tenths", "hundredths", "thousandths"] },
     "dec-x10":          { en: "× and ÷ by 10, 100, 1000", ja: "小数 × ÷ 10・100・1000", make: decX10Make("dec-x10"), check: decCheck, tags: ["mul", "div", "1000"] },
     "dec-round":        { en: "Rounding decimals", ja: "小数の四捨五入（整数・小数第1位・第2位）", make: decRoundMake("dec-round"), check: decCheck, tags: ["whole", "1dp", "2dp"] },
