@@ -252,17 +252,16 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 .pad .wide2 { grid-column: span 2; }
 .pad .go { background: var(--slate); color: var(--on-slate); border-color: var(--slate); font-size: 20px; }
 .pad .soft { font-size: 18px; color: var(--muted); }
-.pad button.flash { animation: keyflash 0.28s ease-out; }
-@keyframes keyflash { 0% { background: var(--lamp); border-color: var(--lamp); transform: scale(0.93); } 100% { background: var(--surface); border-color: var(--line); transform: scale(1); } }
-.pad .go.flash { animation: none; }
+/* 押したキーを光らせる：iPad の「視差効果を減らす」でも効くよう、アニメーションでなく色を一瞬付けて外す */
+.pad button.lit { background: var(--lamp); border-color: var(--lamp); color: #1E1608; }
+.pad .go.lit { background: var(--slate); border-color: var(--lamp); }
 /* テンキーのすぐ上に「いま打っている答え」を出す（計算エリアを挟んで上の枠が見えなくても分かるように） */
 .readout { width: 100%; max-width: 420px; margin: 0 auto; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 10px; padding: 10px 14px; background: var(--surface); border: 2px solid var(--slate); border-radius: 16px; font-weight: 700; font-size: 30px; font-variant-numeric: tabular-nums; }
 .readout .r-lbl { font-size: 15px; color: var(--muted); font-weight: 700; }
 .readout .rb { min-width: 2.2em; padding: 2px 10px; border-radius: 10px; border: 2px solid var(--line); background: var(--ground); color: var(--ink); font: inherit; text-align: center; }
 .readout .rb.active { border-color: var(--slate); background: var(--surface); }
 .readout .rb .ph { color: var(--muted); opacity: 0.5; }
-.readout .rb.pop { animation: rbpop 0.28s ease-out; }
-@keyframes rbpop { 0% { background: var(--lamp-soft); transform: scale(1.08); } 100% { transform: scale(1); } }
+.readout .rb.lit { background: var(--lamp-soft); border-color: var(--lamp); }
 .steps { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-variant-numeric: tabular-nums; font-size: 17px; }
 .steps li { padding: 8px 12px; background: var(--surface); border-radius: 10px; border: 1px solid var(--line); }
 .ja-line { font-size: 16px; color: var(--muted); }
@@ -982,12 +981,11 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   // 押したキーを一瞬光らせ、答え表示の枠を弾ませる（render で作り直した後の新しいボタンに付ける）
   function flashKey(sel, a) {
     if (view !== "quiz") return;
-    var b = app.querySelector(sel);
-    if (b) { b.classList.remove("flash"); void b.offsetWidth; b.classList.add("flash"); }
-    if (a === "key" || a === "back" || a === "clear" || a === "nextbox") {
-      var r = app.querySelector(".readout .rb.active");
-      if (r) r.classList.add("pop");
-    }
+    var lit = [], b = app.querySelector(sel);
+    if (b) lit.push(b);
+    if (a === "key" || a === "back" || a === "clear" || a === "nextbox") { var r = app.querySelector(".readout .rb.active"); if (r) lit.push(r); }
+    lit.forEach(function (x) { x.classList.add("lit"); });
+    setTimeout(function () { lit.forEach(function (x) { x.classList.remove("lit"); }); }, 220);
   }
   function handle(el, a) {
     if (a === "start-mix" || a === "start-long") { var kind = a === "start-long" ? "long" : "short"; var s = buildMix(kind); if (s) startSession(s, kind); }
