@@ -4,13 +4,24 @@
  *  - 型の id（gen.js の TYPES）は一度付けたら変えない（進捗が型 id に紐づく）
  *  - 名前・学校名など個人が特定できる情報は入れない
  *  - unit.status: "next"=今週・来週の予習 / "review"=やった単元の復習 / "bank"=いつでも
+ *  - unit.separate: true＝普段の練習と混ぜない単元（Practise ボタンだけで出る）
  *  - mix: 1回（Start）の配分。単元 id と問題数。short は合計8問、long は合計14問
  */
 window.MATH_CONTENT = {
-  version: "2026-11-07",
+  version: "2026-11-08",
   appName: "Skyline Maths",
 
   units: [
+    {
+      id: "m-pmc",
+      status: "next",
+      separate: true,   // 普段の練習とは混ぜない（Start の配分・混ぜて出す・ボスに入れない。この単元の Practise だけで出る）
+      when: "PMC · 11–20 Nov",
+      title: "PMC challenge problems",
+      ja: "PMC 対策（数え上げの重なり・「〜より◯分の1多い」の比・6と9の倍数・面積から辺・周期と公倍数）",
+      types: ["pmc-count", "pmc-ratio", "pmc-multiple", "pmc-area-side", "pmc-cycle"],
+      source: "PMC 2018年11月の過去問（家で解いた・17/25）で落とした種類から（knowledge/PMC_過去問と形式.md）。校内実施 11/9〜11/20。普段の練習とは混ぜず、この単元の Practise だけで解く（純子さん希望・11/8）"
+    },
     {
       id: "m-decimals",
       status: "next",

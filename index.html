@@ -296,6 +296,8 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 
   var unitById = {}; C.units.forEach(function (u) { unitById[u.id] = u; });
   var unitOfType = {}; C.units.forEach(function (u) { u.types.forEach(function (t) { if (!unitOfType[t]) unitOfType[t] = u.id; }); });
+  // separate の単元（PMC 対策など）の型は、普段の練習（混ぜて出す・ボス）に入れない
+  function sepType(t) { var u = unitById[unitOfType[t]]; return !!(u && u.separate); }
   var allTypes = Object.keys(unitOfType).filter(function (t) { return T[t]; });
   function sumMix(kind) { return (C.mix[kind] || []).reduce(function (a, m) { return a + m[1]; }, 0); }
 
@@ -437,7 +439,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var q = shuffle(fillUnit(uid, sumMix("short") || 8));
     if (!q.length) return null;
     // 混ぜて出す：別の単元の、出しどきが来た（または前回間違えた）既習の型を最大2問、4問目以降に差し込む（未習は混ぜない）
-    var mix = mixIns(uid, q.length >= 6 ? 2 : 0), slots = [];
+    var mix = mixIns(uid, q.length >= 6 && !unitById[uid].separate ? 2 : 0), slots = [];
     for (var k = 3; k < q.length; k++) slots.push(k);
     shuffle(slots).slice(0, mix.length).forEach(function (k, j) { q[k] = makeProblem(mix[j], "mixin"); });
     return { mode: "unit", unit: uid, queue: q };
@@ -451,13 +453,13 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   function mixIns(uid, n) {
     if (!n) return [];
     var u = unitById[uid], own = u.types;
-    var cand = allTypes.filter(function (t) { var r = rec(t); return own.indexOf(t) < 0 && r && r.seen && (isDue(t) || S.follow.indexOf(t) >= 0); });
+    var cand = allTypes.filter(function (t) { var r = rec(t); return own.indexOf(t) < 0 && !sepType(t) && r && r.seen && (isDue(t) || S.follow.indexOf(t) >= 0); });
     function near(t) { return own.some(function (o) { return confusable(o, t); }) ? 0 : 1; }
     cand = shuffle(cand).sort(function (a, b) { return near(a) - near(b); });
     return cand.slice(0, n);
   }
   // ボスバトル：今週（月曜から）答えた型から最大5問。新しい数字で出す（同じ問題は再現できないため）
-  function bossPoolNow() { return CO ? CO.bossPool(S.sessions, CO.weekKey(new Date()), function (id) { return !!T[id]; }) : []; }
+  function bossPoolNow() { return CO ? CO.bossPool(S.sessions, CO.weekKey(new Date()), function (id) { return !!T[id] && !sepType(id); }) : []; }
   function buildBoss() {
     if (!CO || !CO.bossOpen(new Date())) return null;
     var pool = bossPoolNow();
@@ -621,7 +623,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 
   function homeHTML() {
     var dueN = allTypes.filter(isDue).length;
-    var nextU = C.units.filter(function (u) { return u.status === "next"; });
+    var nextU = C.units.filter(function (u) { return u.status === "next" && !u.separate; });
     var thisWeek = weekLit(6).lit;
     var away = daysSinceLast();
     var h = '<div class="wrap">';
@@ -906,7 +908,10 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var recent = [], ok = {}, last = sess.answers[sess.i];
     for (var k = sess.i; k >= 0; k--) if (sess.answers[k]) recent.push(sess.answers[k].type);
     if (last && last.ok) ok[last.type] = 1;
-    var e = CO.pickAny(TB, S, { recent: recent, ok: ok });
+    // separate の単元（PMC）の回はその単元の問いだけ、普段の回はそれ以外だけ
+    var sepRound = sess.mode === "unit" && !!(unitById[sess.unit] && unitById[sess.unit].separate);
+    var bank = TB.filter(function (q) { return (!!(q.link && q.link.length) && q.link.every(sepType)) === sepRound; });
+    var e = CO.pickAny(bank, S, { recent: recent, ok: ok });
     if (!e) return false;
     sess.phase = "think"; ui = { think: { e: e, st: {} } }; render(); window.scrollTo(0, 0);
     return true;
