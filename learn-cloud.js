@@ -177,6 +177,11 @@
       list.sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
       out.sessions = clone(list.slice(-300));
     }
+    // 学習メソッドの記録（シール・Sam のノート・出た回数）は両方を合わせる（消さない）
+    if (local.coach || remote.coach) {
+      var CO = (win && win.Coach) || (typeof require === "function" ? (function () { try { return require("./coach.js"); } catch (e) { return null; } })() : null);
+      if (CO) out.coach = CO.mergeCoach(local.coach, remote.coach);
+    }
     // follow（次回の確認予約）は手元のまま：和集合にすると消化済みの予約が蘇る
     return out;
   }

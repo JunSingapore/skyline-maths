@@ -272,11 +272,16 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 <script src="gen.js"></script>
 <script src="content.js"></script>
 <script src="learn-cloud.js"></script>
+<script src="think.js"></script>
+<script src="coach.js"></script>
 <script>
 (function () {
   "use strict";
   var C = window.MATH_CONTENT, G = window.MATH_GEN;
   var LC = window.LearnCloud || null;   // クラウド保存（無くても学習はできる）
+  var CO = window.Coach || null;        // 学習メソッド（自信の申告・考える問い・ボス）。無くても学習はできる
+  var TB = window.THINK_BANK || [];
+  if (CO) CO.injectCSS();
   var app = document.getElementById("app");
   if (!C || !G) { app.innerHTML = '<div class="wrap"><p>問題データ（content.js / gen.js）が読み込めませんでした。</p></div>'; return; }
   var T = G.TYPES;
@@ -302,6 +307,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     s.follow = (s.follow || []).filter(function (f) { return typeof f === "string"; });
     s.round = s.round || 0;
     s.sessions = s.sessions.filter(function (x) { return x && x.res && x.res.length; });
+    if (CO) CO.ensure(s);
     return s;
   }
   function validState(s) {
@@ -372,7 +378,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     } else {
       r.wrong++; r.box = 1; r.due = addDays(1); r.wrongRound = S.round;
       if (S.follow.indexOf(id) < 0) S.follow.push(id);
-      if (S.follow.length > 8) S.follow.shift();
+      if (S.follow.length > 8) { if (CO) CO.trimFollow(S.follow, function (t) { return t; }, S, 8); else S.follow.shift(); }
     }
     r.round = S.round;
     S.items[id] = r;
@@ -428,16 +434,47 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     return out;
   }
   function buildUnit(uid) {
-    var q = fillUnit(uid, sumMix("short") || 8);
-    return q.length ? { mode: "unit", unit: uid, queue: shuffle(q) } : null;
+    var q = shuffle(fillUnit(uid, sumMix("short") || 8));
+    if (!q.length) return null;
+    // 混ぜて出す：別の単元の、出しどきが来た（または前回間違えた）既習の型を最大2問、4問目以降に差し込む（未習は混ぜない）
+    var mix = mixIns(uid, q.length >= 6 ? 2 : 0), slots = [];
+    for (var k = 3; k < q.length; k++) slots.push(k);
+    shuffle(slots).slice(0, mix.length).forEach(function (k, j) { q[k] = makeProblem(mix[j], "mixin"); });
+    return { mode: "unit", unit: uid, queue: q };
+  }
+  // 取り違えやすい組み合わせ（型の id の頭で判定）
+  var CONFUSE = { "mul": ["div"], "div": ["mul"], "frac-mul": ["frac-addsub", "frac-div"], "frac-div": ["frac-mul"], "frac-addsub": ["frac-mul", "mixed"],
+    "frac-add": ["frac-mul"], "mixed": ["frac-addsub"], "meas-perimeter": ["meas-area"], "meas-area": ["meas-perimeter", "meas-volume"], "meas-volume": ["meas-area"],
+    "dec-mul": ["dec-div", "dec-x10"], "dec-div": ["dec-mul"], "frac-simplify": ["frac-equiv"], "frac-equiv": ["frac-simplify"] };
+  function heads(t) { return Object.keys(CONFUSE).filter(function (h) { return t === h || t.indexOf(h + "-") === 0; }); }
+  function confusable(a, b) { return heads(a).some(function (h) { return CONFUSE[h].some(function (x) { return b === x || b.indexOf(x + "-") === 0; }); }); }
+  function mixIns(uid, n) {
+    if (!n) return [];
+    var u = unitById[uid], own = u.types;
+    var cand = allTypes.filter(function (t) { var r = rec(t); return own.indexOf(t) < 0 && r && r.seen && (isDue(t) || S.follow.indexOf(t) >= 0); });
+    function near(t) { return own.some(function (o) { return confusable(o, t); }) ? 0 : 1; }
+    cand = shuffle(cand).sort(function (a, b) { return near(a) - near(b); });
+    return cand.slice(0, n);
+  }
+  // ボスバトル：今週（月曜から）答えた型から最大5問。新しい数字で出す（同じ問題は再現できないため）
+  function bossPoolNow() { return CO ? CO.bossPool(S.sessions, CO.weekKey(new Date()), function (id) { return !!T[id]; }) : []; }
+  function buildBoss() {
+    if (!CO || !CO.bossOpen(new Date())) return null;
+    var pool = bossPoolNow();
+    if (pool.length < CO.BOSS_MIN) return null;
+    return { mode: "boss", unit: "boss", wk: CO.weekKey(new Date()), queue: shuffle(pool.slice(0, CO.BOSS_N).map(function (id) { return makeProblem(id, "boss"); })) };
   }
 
   function startSession(s, kind) {
     MAX_SECS = (ROUNDS[kind] || ROUNDS.short).secs;
-    S.round = (S.round || 0) + 1; save();
-    s.i = 0; s.answers = []; s.start = Date.now();
+    var boss = s.mode === "boss";
+    if (!boss) { S.round = (S.round || 0) + 1; save(); }   // ボスは回に数えない（出しどきの間隔を変えない）
+    s.i = 0; s.answers = []; s.start = Date.now(); s.phase = "items";
     s.log = { d: today(), t: s.start, unit: s.mode === "mix" ? "mix" : s.unit, secs: 0, res: [], miss: [] };
-    S.sessions.push(s.log); if (S.sessions.length > 300) S.sessions.shift();
+    if (!boss) { S.sessions.push(s.log); if (S.sessions.length > 300) S.sessions.shift(); }   // ボスは記録・集計に入れない
+    // 自信の申告は1回に2問だけ／考える問いは3回に2回・真ん中あたりで1問
+    s.conf = CO && !boss ? CO.confSlots(s.queue.length, 2) : [];
+    s.thinkAt = CO && !boss && TB.length && CO.thinkThisRound(S.round) ? Math.max(2, Math.floor(s.queue.length / 2)) : -1;
     s.before = {}; s.queue.forEach(function (p) { if (!(p.type in s.before)) s.before[p.type] = { box: box(p.type), m: mastered(p.type) }; });
     sess = s; ui = freshUi(); go("quiz");
   }
@@ -593,8 +630,10 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
         : away >= 7 ? "Welcome back. Everything you practised is still here, waiting."
           : thisWeek ? "This week’s window is lit. Another round?" : "A round or two this week keeps the methods sharp.") + "</p></header>";
     if (LC) h += LC.summaryHTML();   // 連続週・今週あと何日・ポイント（一番目立つ所）
+    if (CO) h += CO.bossCardHTML(S, bossPoolNow().length, new Date());   // 金〜日だけ
     h += skyline(false);
     h += tally();
+    if (CO) h += CO.stickerShelfHTML(S);
     h += '<p class="week-note">' + weeksLit() + " of the last 7 weeks" + (away ? " · last round " + away + (away === 1 ? " day ago" : " days ago") : "") + "</p>";
     h += glanceHTML(nextU);
     h += '<section class="today" aria-label="Practice"><div style="display:flex;flex-direction:column;gap:8px">';
@@ -744,7 +783,8 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 
   function quizHTML() {
     var p = sess.queue[sess.i], ty = T[p.type];
-    var tag = p.why === "review" ? " · Back again" : p.why === "followup" ? " · One more try at this skill" : "";
+    if (sess.phase === "think") return '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">' + CO.thinkHTML(ui.think.e, ui.think.st, { last: isLast() }) + "</div></div>";
+    var tag = p.why === "review" ? " · Back again" : p.why === "followup" ? " · One more try at this skill" : p.why === "mixin" ? " · Mixed in from another topic" : p.why === "boss" ? " · Boss of the week" : "";
     var h = '<div class="wrap">' + topbar() + storageWarn() + '<div class="stage">';
     h += '<p class="eyebrow">' + esc(ty.en) + esc(tag) + "</p>";
     h += '<div class="prob"><p class="muted">' + esc(askText(p)) + "</p>" + eqHTML(p);
@@ -778,6 +818,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     h += '<button class="soft" data-action="back" aria-label="Delete">⌫</button><button data-action="key" data-k="0">0</button>';
     h += p.kind === "dec" ? '<button data-action="key" data-k="." aria-label="Decimal point">.</button>'
       : p.fields.length > 1 ? '<button class="soft" data-action="nextbox">Next box</button>' : '<button class="soft" data-action="clear">Clear</button>';
+    if (CO && sess.conf && sess.conf.indexOf(sess.i) >= 0 && !ui.tries) return h + "</div>" + CO.confButtonsHTML("check-conf");
     h += '<button class="go" data-action="check" style="grid-column:1 / -1">' + (ui.tries ? "Check again" : "Check") + "</button>";
     return h + "</div>";
   }
@@ -789,6 +830,8 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var h = '<div class="feedback ' + (ok ? "ok" : "no") + '" role="status"><p class="fb-title">' + esc(title) + "</p>";
     if (!ok) h += "<p>The answer is <strong>" + esc(answerText(p)) + "</strong>.</p>";
     if (!ok || ui.tries > 1) h += '<ul class="steps">' + p.steps.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>";
+    var a0 = sess.answers[sess.i];
+    if (CO && a0 && a0.conf) h += CO.confNote(a0.conf, a0.ok);
     h += '<button class="btn primary" data-action="next">' + (isLast() ? "Finish" : "Next") + " →</button></div>";
     return h;
   }
@@ -812,21 +855,34 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 
   function isLast() { return sess.i + 1 >= sess.queue.length || elapsed() >= MAX_SECS; }
 
-  function check() {
+  function check(conf) {
     var p = sess.queue[sess.i];
     var res = T[p.type].check(p, ui.vals);
     if (res.status === "incomplete") { ui.hint = res.hint; render(); return; }
     ui.tries++;
     if (ui.tries === 1) {
-      var a1 = { type: p.type, ok: res.status === "correct", q: p.text, given: givenText(p, ui.vals), a: answerText(p), code: res.code || null };
+      var a1 = { type: p.type, ok: res.status === "correct", q: p.text, given: givenText(p, ui.vals), a: answerText(p), code: res.code || null, conf: conf || null };
       sess.answers[sess.i] = a1;
       sess.log.res.push([a1.type, a1.ok ? 1 : 0]); sess.log.secs = elapsed(); sess.log.d = today();
       if (!a1.ok) sess.log.miss.push({ type: a1.type, q: a1.q, given: a1.given, a: a1.a, code: a1.code });
-      record(p, a1.ok);   // ここで保存される（1問ごと）
-      if (LC) LC.answer(p.type, a1.ok);
+      if (sess.mode === "boss") {
+        // ボス：箱・ポイントには入れない。間違えた型だけ次の回の確認へ
+        if (!a1.ok && S.follow.indexOf(p.type) < 0) { S.follow.push(p.type); CO.trimFollow(S.follow, function (t) { return t; }, S, 8); }
+        save();
+      } else {
+        record(p, a1.ok);   // ここで保存される（1問ごと）
+        if (LC) LC.answer(p.type, a1.ok);
+        if (conf) {
+          (sess.log.conf = sess.log.conf || []).push([p.type, conf, a1.ok ? 1 : 0]);
+          // 自信ありで間違えた＝思い込みかも → 次の回の確認を先頭に
+          if (conf === "sure" && !a1.ok) { CO.markSure(S, p.type); S.follow = [p.type].concat(S.follow.filter(function (t) { return t !== p.type; })); CO.trimFollow(S.follow, function (t) { return t; }, S, 8); }
+          else if (a1.ok) CO.clearSure(S, p.type);
+          save();
+        }
+      }
     }
     if (res.status === "correct") {
-      if (ui.tries > 1) { var r = S.items[p.type]; r.hintRight = (r.hintRight || 0) + 1; sess.answers[sess.i].hintRight = true; save(); }
+      if (ui.tries > 1 && sess.mode !== "boss") { var r = S.items[p.type]; r.hintRight = (r.hintRight || 0) + 1; sess.answers[sess.i].hintRight = true; save(); }
       ui.done = true; ui.result = "correct";
     } else if (ui.tries === 1) {
       ui.hint = res.hint;
@@ -837,13 +893,47 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   function clearFollow(p) { var r = rec(p.type); if (sess.answers[sess.i] && sess.answers[sess.i].ok && !(r && r.wrongRound === S.round)) S.follow = S.follow.filter(function (t) { return t !== p.type; }); }
 
   function advance() {
-    var p = sess.queue[sess.i]; clearFollow(p); save();
+    var p = sess.queue[sess.i]; if (sess.mode !== "boss") clearFollow(p); save();
+    if (maybeThink()) return;
+    if (isLast()) { finish(); return; }
+    sess.i++; ui = freshUi(); render(); window.scrollTo(0, 0);
+  }
+  // 考える問い：決めた位置（または最後の問題）のあとに1問。時間切れなら出さない
+  function maybeThink() {
+    if (!CO || sess.thinkAt < 0 || sess.thought || elapsed() >= MAX_SECS) return false;
+    if (sess.i + 1 < sess.thinkAt && !isLast()) return false;
+    sess.thought = true;
+    var recent = [], ok = {}, last = sess.answers[sess.i];
+    for (var k = sess.i; k >= 0; k--) if (sess.answers[k]) recent.push(sess.answers[k].type);
+    if (last && last.ok) ok[last.type] = 1;
+    var e = CO.pickAny(TB, S, { recent: recent, ok: ok });
+    if (!e) return false;
+    sess.phase = "think"; ui = { think: { e: e, st: {} } }; render(); window.scrollTo(0, 0);
+    return true;
+  }
+  function thinkPick(k) {
+    var t = ui.think; if (!t || t.st.pick != null || !t.st.order) return;
+    t.st.pick = k;
+    var oi = t.st.order[k], ok = t.e.a == null ? null : oi === t.e.a;
+    CO.thinkDone(S, t.e, ok);
+    sess.log.think = [t.e.id, ok === null ? null : ok ? 1 : 0];   // 箱・ポイントには入れない
+    save(); render();
+  }
+  function thinkNext() {
+    sess.phase = "items";
     if (isLast()) { finish(); return; }
     sess.i++; ui = freshUi(); render(); window.scrollTo(0, 0);
   }
 
   function finish(stopped) {
     var res = sess.answers.filter(Boolean);
+    sess.phase = "items";
+    if (sess.mode === "boss") {
+      // 最後までやったボスだけ、その週のシールを記録（ポイント・学習日には入れない）
+      if (res.length === sess.queue.length || (!stopped && res.length)) sess.bossResult = CO.bossRecord(S, sess.wk, res.filter(function (a) { return a.ok; }).length, sess.queue.length);
+      save(); if (LC) LC.saveState();
+      go(res.length ? "end" : "home"); return;
+    }
     sess.log.secs = elapsed();
     if (!res.length) S.sessions = S.sessions.filter(function (x) { return x !== sess.log; });
     save();
@@ -854,8 +944,24 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   }
 
   /* ── end ── */
+  function bossEndHTML(res, ok) {
+    var b = sess.bossResult, perfect = b && ok === sess.queue.length;
+    var h = '<div class="wrap"><header class="masthead"><p class="eyebrow">Boss of the week</p><h1>' + (perfect ? "Champion! You beat the boss." : "Boss battle done.") + "</h1></header>";
+    h += '<p class="score">' + ok + " <span>/ " + res.length + " right first time</span></p>";
+    if (b) h += '<div class="coach-win">' + CO.sticker(!!b.perfect, 96) + "<p><strong>" + (b.perfect ? "Champion sticker" : "Boss sticker") + "</strong> for this week</p></div>";
+    h += CO.bubble("olive", "happy", "<p>" + (perfect ? "Brilliant — you remembered this week’s maths." : "Well fought! The ones you missed will come back in your next round. Want another go at the boss?") + "</p>");
+    var missed = res.filter(function (a) { return !a.ok; });
+    if (missed.length) {
+      h += '<section style="display:flex;flex-direction:column;gap:12px"><h3>Worth another look</h3><ul class="recap">';
+      missed.forEach(function (a) { h += "<li><span>" + esc(a.q) + '</span><span class="a">✓ ' + esc(a.a) + "</span></li>"; });
+      h += "</ul></section>";
+    }
+    h += '<div class="row"><button class="btn primary" data-action="start-boss">Try the boss again</button><button class="btn ghost" data-action="home">Back to the skyline</button></div></div>';
+    return h;
+  }
   function endHTML() {
     var res = sess.answers.filter(Boolean);
+    if (sess.mode === "boss") return bossEndHTML(res, res.filter(function (a) { return a.ok; }).length);
     var ok = res.filter(function (a) { return a.ok; }).length;
     var missed = res.filter(function (a) { return !a.ok; });
     var timeUp = elapsed() >= MAX_SECS && res.length < sess.queue.length;
@@ -900,6 +1006,21 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     return { weeks: weeksLit(), sessions: week.length, minutes: mins, accuracy: wt ? Math.round(wr / wt * 100) : null, skills: skills, recentMisses: recent };
   }
 
+  function coachParentHTML() {
+    var since = addDays(-30), sureWrong = {}, notRight = 0, confN = 0, thinkN = 0, thinkOk = 0;
+    S.sessions.forEach(function (s) {
+      if (s.d < since) return;
+      (s.conf || []).forEach(function (c) { confN++; if (c[1] === "sure" && !c[2]) sureWrong[c[0]] = (sureWrong[c[0]] || 0) + 1; if (c[1] === "not" && c[2]) notRight++; });
+      if (s.think) { thinkN++; if (s.think[1] === 1) thinkOk++; }
+    });
+    var sw = Object.keys(sureWrong), st = CO.stickers(S);
+    var h = '<section class="panel"><h3>自信の申告・考える問い（直近30日）</h3>';
+    h += "<p>自信の申告 " + confN + " 回・考える問い " + thinkN + " 回（正誤のある問い " + thinkOk + " 回正解）・Sam's notebook " + CO.ensure(S).notebook.length + "・ボスのシール " + st.tried + "（全問正解 " + st.perfect + "）</p>";
+    h += "<p>自信ありで間違えた型：" + (sw.length ? sw.map(function (k) { return esc(T[k] ? T[k].ja : k) + "×" + sureWrong[k]; }).join("、") : "なし") + "</p>";
+    if (notRight) h += "<p>自信なしで正解：" + notRight + " 回（できているのに自信がない）</p>";
+    h += '<p class="note">「自信ありで間違えた型」は思い込みの可能性があり、次の回で先に出ます。考える問い・ボスはポイントと学習日には入りません。</p></section>';
+    return h;
+  }
   function exportText() {
     return JSON.stringify({ app: APP, content: C.version, exported: new Date().toISOString(), summary: summarize(), state: S });
   }
@@ -923,6 +1044,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     });
     h += '<p class="note">60%未満（赤）は要練習。間違えた型は、次の回に新しい数字で自動で出ます。✓＝secure（別の回に2回正解・条件の違う問題でも正解）。「手がかり後」＝1回目は違ったが、手がかりを見て直せた回数。</p></section>';
 
+    if (CO) h += coachParentHTML();
     h += '<section class="panel"><h3>最近まちがえた問題</h3>';
     if (!sm.recentMisses.length) h += '<p class="muted">まだありません。</p>';
     else {
@@ -990,6 +1112,11 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   function handle(el, a) {
     if (a === "start-mix" || a === "start-long") { var kind = a === "start-long" ? "long" : "short"; var s = buildMix(kind); if (s) startSession(s, kind); }
     else if (a === "start-unit") { var su = buildUnit(el.getAttribute("data-unit")); if (su) startSession(su, "short"); }
+    else if (a === "start-boss") { var sb = buildBoss(); if (sb) startSession(sb, "short"); else { sess = null; ui = {}; go("home"); } }
+    else if (a === "check-conf") check(el.getAttribute("data-c"));
+    else if (a === "think-pick") thinkPick(+el.getAttribute("data-k"));
+    else if (a === "think-hint") { if (ui.think) { ui.think.st.hint = true; render(); } }
+    else if (a === "think-next") thinkNext();
     else if (a === "stop") finish(true);
     else if (a === "home") { sess = null; ui = {}; go("home"); }
     else if (a === "parent") { ui = {}; go("parent"); }
@@ -1030,7 +1157,9 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
   // 外付けキーボード（Mac での確認用・iPad のキーボードカバーにも）
   document.addEventListener("keydown", function (e) {
     if (view !== "quiz" || !sess) return;
+    if (sess.phase === "think") { if (e.key === "Enter" && ui.think && ui.think.st.pick != null) { e.preventDefault(); thinkNext(); } return; }
     if (ui.done) { if (e.key === "Enter") { e.preventDefault(); advance(); } return; }
+    if (e.key === "Enter" && CO && sess.conf && sess.conf.indexOf(sess.i) >= 0 && !ui.tries) { e.preventDefault(); return; }   // 自信の申告の問題は3つのボタンで答える
     if (/^[0-9.]$/.test(e.key)) { e.preventDefault(); typeKey(e.key); flashKey('.pad [data-k="' + e.key + '"]', "key"); }
     else if (e.key === "Backspace") { e.preventDefault(); backKey(); }
     else if (e.key === "Tab" || e.key === "/" || e.key === "r") { e.preventDefault(); nextBox(); }
