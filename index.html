@@ -240,9 +240,9 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 .box .ph { color: var(--muted); opacity: 0.5; }
 .paper { font-size: 15px; color: var(--muted); }
 /* 途中計算エリア：指・ペンで自由に書ける。保存・送信はしない。次の問題で消える */
-.scratch { display: flex; flex-direction: column; gap: 6px; }
+.scratch { display: flex; flex-direction: column; gap: 6px; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .scratch-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
-.scratch canvas { display: block; width: 100%; height: 300px; background: var(--surface); border: 1px dashed var(--line); border-radius: 18px; touch-action: none; cursor: crosshair; }
+.scratch canvas { display: block; width: 100%; height: 300px; background: var(--surface); border: 1px dashed var(--line); border-radius: 18px; touch-action: none; cursor: crosshair; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
 .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%; max-width: 420px; margin: 0 auto; }
 .pad button {
   min-height: 62px; border-radius: 16px; border: 2px solid var(--line); background: var(--surface);
@@ -510,10 +510,22 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
       g.beginPath(); g.moveTo(a.x * k, a.y * k); g.lineTo(b.x * k, b.y * k); g.stroke();
     }
     function width(e) { return e.pointerType === "pen" && e.pressure ? 1.5 + e.pressure * 2.5 : 3; }
-    c.addEventListener("pointerdown", function (e) { drawing = true; last = pt(e); try { c.setPointerCapture(e.pointerId); } catch (x) {} line(last, last, width(e)); e.preventDefault(); });
-    c.addEventListener("pointermove", function (e) { if (!drawing) return; var p = pt(e); line(last, p, width(e)); last = p; e.preventDefault(); });
-    function up() { drawing = false; last = null; }
-    c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up); c.addEventListener("pointerleave", up);
+    var pid = null;   // 書いている指・ペンは1本だけ（2本目の指や手のひらで線が飛ばないように）
+    c.addEventListener("pointerdown", function (e) {
+      if (drawing) return;
+      drawing = true; pid = e.pointerId; last = pt(e);
+      try { var sel = window.getSelection && window.getSelection(); if (sel) sel.removeAllRanges(); } catch (x) {}
+      try { c.setPointerCapture(e.pointerId); } catch (x) {}
+      line(last, last, width(e)); e.preventDefault();
+    });
+    c.addEventListener("pointermove", function (e) { if (!drawing || e.pointerId !== pid) return; var p = pt(e); line(last, p, width(e)); last = p; e.preventDefault(); });
+    function up(e) { if (e && pid !== null && e.pointerId !== pid) return; drawing = false; last = null; pid = null; }
+    c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up); c.addEventListener("pointerleave", up); c.addEventListener("lostpointercapture", up);
+    // iPad：指で書くと長押し・なぞりが文字の範囲選択やコピーのメニューになるのを止める
+    function stop(e) { if (e.cancelable) e.preventDefault(); }
+    c.addEventListener("touchstart", stop, { passive: false }); c.addEventListener("touchmove", stop, { passive: false });
+    c.addEventListener("contextmenu", stop);
+    document.addEventListener("selectstart", function (e) { if (drawing) e.preventDefault(); });
     return (scratch = c);
   }
   function fitScratch(clear) {
