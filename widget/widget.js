@@ -178,7 +178,7 @@ async function build(family) {
                         : v.mode === "pair" || v.mode === "again" ? L[1] : L[0]);
     t.font = Font.boldRoundedSystemFont(16); t.textColor = ink; t.centerAlignText(); t.minimumScaleFactor = 0.6; t.lineLimit = 1;
     if (v.data && (v.mode === "status" || v.mode === "stale")) {
-      const f = w.addText("🔥 " + v.data.streak); f.font = Font.roundedSystemFont(13); f.textColor = sub; f.centerAlignText();
+      const f = w.addText("🔥 " + v.data.streak); f.font = Font.regularRoundedSystemFont(13); f.textColor = sub; f.centerAlignText();
     }
     return w;
   }
@@ -195,7 +195,7 @@ async function build(family) {
   L.forEach(function (s, k) {
     if (!s) return;
     const t = col.addText(s);
-    t.font = k === 0 || (big && k === 1) ? Font.boldRoundedSystemFont(sizes[k]) : Font.roundedSystemFont(sizes[k]);
+    t.font = k === 0 || (big && k === 1) ? Font.boldRoundedSystemFont(sizes[k]) : Font.regularRoundedSystemFont(sizes[k]);
     if (k === 1 && !big) t.font = Font.mediumMonospacedSystemFont(sizes[k]);
     t.textColor = k === 3 ? sub : ink;
     t.lineLimit = 1; t.minimumScaleFactor = 0.6;

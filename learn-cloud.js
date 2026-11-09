@@ -455,6 +455,10 @@
         ' <span class="muted">(' + s.rescues_left + " left this month)</span></p>" +
         '<button class="btn ghost small" data-lc="rescue">Use ' + (v.offer.need > 1 ? v.offer.need + " savers" : "saver") + " ♥</button></div>";
     }
+    // 親が手で付けたポイント（06）：いちばん新しい1件と今週の合計
+    var mg = (s.manual || [])[0], MK = { chore: "Helping at home", piano: "Piano practice", violin: "Violin practice", song: "Song passed" };
+    if (mg && MK[mg.kind]) h += '<p class="lc-line small">👏 From Mum &amp; Dad: <b>+' + (mg.amount | 0) + "</b> " + MK[mg.kind] + (mg.memo ? " (" + esc(mg.memo) + ")" : "") +
+      (s.manual_week > mg.amount ? ' <span class="muted">· this week +' + (s.manual_week | 0) + "</span>" : "") + "</p>";
     var rw = (s.rewards || []).slice().sort(function (a, b) { return a.cost - b.cost; });
     var avail = s.available || 0, can = rw.filter(function (r) { return r.cost <= avail; }), next = rw.filter(function (r) { return r.cost > avail; })[0];
     if (can.length) h += '<p class="lc-line small">🎁 You can ask for a reward — see below.</p>';

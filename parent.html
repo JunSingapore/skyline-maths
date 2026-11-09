@@ -108,6 +108,16 @@ details summary { cursor: pointer; font-weight: 600; }
     </section>
 
     <section class="panel">
+      <h2>お手伝い・練習のポイント</h2>
+      <div class="row" style="margin-top:0"><label for="mg-day" style="margin:0">日付</label><select id="mg-day" style="width:auto"></select></div>
+      <label for="mg-memo">メモ（曲の合格は曲名が必要・40文字まで）</label><input id="mg-memo" maxlength="40" placeholder="例：Minuet 1／お皿洗い">
+      <div class="row" id="mg-btns"><button data-mk="chore">家事 +5</button><button data-mk="piano">ピアノ練習 +5</button><button data-mk="violin">バイオリン練習 +5</button><button class="primary" data-mk="song">曲の合格 +30</button></div>
+      <p class="msg" id="mg-msg"></p>
+      <ul class="devs" id="mgs"></ul>
+      <p class="small muted" style="margin:8px 0 0">練習は楽器ごとに1日1回、曲の合格は同じ曲で1回まで。残高にだけ入り、週の達成・連続週には数えません。間違えたら「取り消す」（申請中のごほうびの分は取り消しに使えません）。</p>
+    </section>
+
+    <section class="panel">
       <h2>ごほうび</h2>
       <ul class="devs" id="rws"></ul>
       <form id="rw-form">
@@ -193,12 +203,13 @@ details summary { cursor: pointer; font-weight: 600; }
   });
   var children = [], user = null, gen = 0;   // gen：ログインし直したら古い読み込みの結果を捨てる
   var summary = null, rewards = [], reqTitles = {};
+  var grants = [], manualReady = false, pendingGrant = null;   // pendingGrant：通信に失敗した付与の id（同じ内容で押し直すと同じ id で送る＝二重に付かない）
   function clearView() {
     gen++; children = [];
     $("sum").innerHTML = ""; $("days").querySelector("tbody").innerHTML = ""; $("devs").innerHTML = ""; $("wdevs").innerHTML = "";
-    ["pt-sum", "reqs", "rws", "resc", "pt-note"].forEach(function (id) { $(id).innerHTML = ""; });
+    ["pt-sum", "reqs", "rws", "resc", "pt-note", "mgs"].forEach(function (id) { $(id).innerHTML = ""; });
     $("hist").querySelector("tbody").innerHTML = ""; resetRewardForm(); summary = null;
-    ["load-msg", "claim-msg", "wclaim-msg", "pw-msg", "req-msg", "goal-msg", "rw-msg"].forEach(function (id) { say(id, ""); });
+    ["load-msg", "claim-msg", "wclaim-msg", "pw-msg", "req-msg", "goal-msg", "rw-msg", "mg-msg"].forEach(function (id) { say(id, ""); });
   }
 
   async function boot() {
@@ -269,11 +280,15 @@ details summary { cursor: pointer; font-weight: 600; }
         sb.from("rewards").select("id,title,cost,active,sort").eq("child_id", child).order("sort").order("cost"),
         sb.from("redemptions").select("id,title,cost,status,requested_at,decided_at").eq("child_id", child).order("requested_at", { ascending: false }).limit(100),
         sb.from("rescues").select("day,used_on").eq("child_id", child).order("day", { ascending: false }).limit(10),
-        sb.rpc("list_widgets", { p_child: child })
+        sb.rpc("list_widgets", { p_child: child }),
+        sb.from("manual_grants").select("id,kind,amount,memo,day,created_at,revoked_at").eq("child_id", child).order("created_at", { ascending: false }).limit(100)
       ]);
       if (g !== gen) return;
       [1, 2, 3, 4, 5, 6, 7, 8].forEach(function (k) { if (res[k].error) throw res[k].error; });
+      // 手で付けたポイント（06 を Run する前は表が無い＝欄を「準備中」にしておく）
+      manualReady = !res[10].error; grants = manualReady ? res[10].data || [] : [];
       renderPoints(res[4].data, res[5].data || [], res[6].data || [], res[7].data || [], res[8].data || []);
+      renderManual();
       renderDays(days, res[0]);
       var last = res[1].data[0], snaps = {};
       (res[2].data || []).forEach(function (s) { snaps[s.app] = s.updated_at; });
@@ -345,6 +360,7 @@ details summary { cursor: pointer; font-weight: 600; }
     }).join("") : '<li class="muted">まだありません。下で追加してください</li>';
     var why = function (h) {
       return h.reason === "day" ? "正解（" + md(h.period) + "）" : h.reason === "week" ? "達成週ボーナス（" + md(h.period) + "〜の週）"
+        : h.reason === "manual" ? manualLabel(grants.filter(function (g) { return g.id === h.period; })[0], h.amount < 0)
         : "交換：" + esc(reqTitles[h.period] || "ごほうび");
     };
     $("hist").querySelector("tbody").innerHTML = hist.length ? hist.map(function (h) {
@@ -408,6 +424,72 @@ details summary { cursor: pointer; font-weight: 600; }
       p_active: old ? null : true, p_sort: old ? null : rewards.length });   // 変更では「出す／しまう」と並び順は今のまま
     if (r.error) { say("rw-msg", "保存できませんでした（" + r.error.message + "）", "bad"); return; }
     resetRewardForm(); say("rw-msg", rid ? "変更しました（申請中のものは申請した時のポイントのままです）" : "追加しました", "good");
+    load();
+  });
+
+  // ── お手伝い・練習のポイント（06）──
+  var MK = { chore: "家事", piano: "ピアノ練習", violin: "バイオリン練習", song: "曲の合格" };
+  function manualLabel(g, undo) {
+    if (!g) return undo ? "取り消し（お手伝い・練習）" : "お手伝い・練習";
+    return (undo ? "取り消し：" : "") + MK[g.kind] + (g.memo ? "（" + esc(g.memo) + "）" : "") + "・" + md(g.day);
+  }
+  function fillManualDays() {
+    var sel = $("mg-day"), keep = sel.value, opts = [];
+    for (var i = 0; i < 7; i++) { var d = new Date(); d.setDate(d.getDate() - i); var v = ymd(d); opts.push('<option value="' + v + '">' + (i === 0 ? "今日" : i === 1 ? "昨日" : md(v)) + "</option>"); }
+    sel.innerHTML = opts.join("");
+    if (keep && sel.querySelector('option[value="' + keep + '"]')) sel.value = keep;
+  }
+  function renderManual() {
+    fillManualDays();
+    Array.prototype.forEach.call($("mg-btns").querySelectorAll("button"), function (b) { b.disabled = !manualReady; });
+    if (!manualReady) { $("mgs").innerHTML = '<li class="muted">（準備中）</li>'; return; }
+    function li(g) {
+      return "<li><span>" + MK[g.kind] + (g.memo ? "（" + esc(g.memo) + "）" : "") + " +" + g.amount + " pt<br><span class=\"small muted\">" + md(g.day) + " の分・" + fmt(g.created_at) + " 付与</span>" +
+        (g.revoked_at ? ' <span class="pill">取り消し済み</span>' : "") + "</span>" +
+        (g.revoked_at ? "" : '<button data-mg="' + esc(g.id) + '">取り消す</button>') + "</li>";
+    }
+    // 新しい10件を出し、それより前（100件まで）は「前の分」を開くと出る＝古い付与も取り消せる
+    var more = grants.slice(10);
+    $("mgs").innerHTML = grants.length ? grants.slice(0, 10).map(li).join("") +
+      (more.length ? '<li style="display:block"><details><summary class="small">前の分（' + more.length + ' 件）</summary><ul class="devs">' + more.map(li).join("") + "</ul></details></li>" : "")
+      : '<li class="muted">まだありません</li>';
+  }
+  function newId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    var b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
+    var h = Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join("");
+    return h.slice(0, 8) + "-" + h.slice(8, 12) + "-" + h.slice(12, 16) + "-" + h.slice(16, 20) + "-" + h.slice(20);
+  }
+  $("mg-btns").addEventListener("click", async function (e) {
+    var b = e.target.closest("button[data-mk]"); if (!b || !children.length || !manualReady) return;
+    var kind = b.getAttribute("data-mk"), memo = $("mg-memo").value.trim(), day = $("mg-day").value;
+    if (kind === "song" && !memo) { say("mg-msg", "曲の合格は、メモに曲名を入れてください", "bad"); $("mg-memo").focus(); return; }
+    if (memo.length > 40) { say("mg-msg", "メモは40文字までです", "bad"); return; }
+    var sig = [children[0].id, kind, memo, day].join("|");
+    var gid = pendingGrant && pendingGrant.sig === sig ? pendingGrant.id : newId();
+    pendingGrant = { sig: sig, id: gid };
+    Array.prototype.forEach.call($("mg-btns").querySelectorAll("button"), function (x) { x.disabled = true; });
+    say("mg-msg", "付けています…");
+    var r = await sb.rpc("grant_manual", { p_id: gid, p_child: children[0].id, p_kind: kind, p_memo: memo, p_day: day });
+    if (r.error) {
+      say("mg-msg", "付けられませんでした（" + r.error.message + "）。もう一度押すと、同じ内容で送り直します（二重には付きません）", "bad");
+      Array.prototype.forEach.call($("mg-btns").querySelectorAll("button"), function (x) { x.disabled = false; });
+      return;
+    }
+    pendingGrant = null;
+    if (!r.data.ok) say("mg-msg", r.data.reason === "already_today" ? MK[kind] + "は、その日の分がもう付いています（楽器ごとに1日1回）" : "「" + memo + "」はもう合格済みです（同じ曲は1回）", "bad");
+    else { say("mg-msg", MK[kind] + (memo ? "（" + memo + "）" : "") + " +" + r.data.amount + " pt を付けました", "good"); $("mg-memo").value = ""; }
+    load();
+  });
+  $("mgs").addEventListener("click", async function (e) {
+    var b = e.target.closest("button[data-mg]"); if (!b) return;
+    var g = grants.filter(function (x) { return x.id === b.getAttribute("data-mg"); })[0]; if (!g) return;
+    if (!confirm(MK[g.kind] + (g.memo ? "（" + g.memo + "）" : "") + " +" + g.amount + " pt を取り消しますか？")) return;
+    b.disabled = true;
+    var r = await sb.rpc("revoke_manual", { p_id: g.id });
+    if (r.error) say("mg-msg", "取り消せませんでした（" + r.error.message + "）", "bad");
+    else if (!r.data.ok) say("mg-msg", r.data.reason === "not_enough" ? "使える残高が足りないので取り消せません（申請中を引いて " + r.data.available + " pt）" : "もう取り消し済みでした", "bad");
+    else say("mg-msg", "取り消しました", "good");
     load();
   });
 
