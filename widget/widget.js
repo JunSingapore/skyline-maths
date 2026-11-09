@@ -162,11 +162,11 @@ async function build(family) {
   const week = (v.data && v.data.week) || mondayOf(sgDate(now));
   const who = charFor(week);
   const w = new ListWidget();
-  w.backgroundColor = new Color("#fffaf2");   // ダークモードでもいつもクリーム色（黒いえんちゃん・吹き出しの文字が沈まないように。11/9 純子さん）
+  w.backgroundColor = new Color("#4fc8c2");   // いつもターコイズ（ダークモードでも。クリームだと白い毛の境目が消えたため 11/9 純子さん）
   w.url = OPEN_URL;
   w.refreshAfterDate = new Date(now.getTime() + 15 * 60 * 1000);
   const ink = new Color("#2b2420");
-  const sub = new Color("#8a8178");
+  const sub = new Color("#1e4f4c");   // ターコイズ地で読める濃い青緑
   const L = lines(v, cache, now);
   const img = await image(who, v.pose);
 
