@@ -162,11 +162,11 @@ async function build(family) {
   const week = (v.data && v.data.week) || mondayOf(sgDate(now));
   const who = charFor(week);
   const w = new ListWidget();
-  w.backgroundColor = Color.dynamic(new Color("#fffaf2"), new Color("#24201c"));
+  w.backgroundColor = new Color("#fffaf2");   // ダークモードでもいつもクリーム色（黒いえんちゃん・吹き出しの文字が沈まないように。11/9 純子さん）
   w.url = OPEN_URL;
   w.refreshAfterDate = new Date(now.getTime() + 15 * 60 * 1000);
-  const ink = Color.dynamic(new Color("#2b2420"), new Color("#f5efe6"));
-  const sub = Color.dynamic(new Color("#8a8178"), new Color("#a89f95"));
+  const ink = new Color("#2b2420");
+  const sub = new Color("#8a8178");
   const L = lines(v, cache, now);
   const img = await image(who, v.pose);
 

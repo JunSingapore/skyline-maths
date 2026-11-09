@@ -705,45 +705,103 @@
   }
   var FRAC_W = { 2: "a half", 3: "a third", 4: "a quarter", 5: "a fifth" };
   var DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  // 解説（steps）は H(英, 日) の配列。実際の数字で「試した → だめ／合格」を並べる（2026-11-09 詳しく）
+  var JDAYS = ["月", "火", "水", "木", "金", "土", "日"];
+  var FRAC_J = { 2: "2分の1", 3: "3分の1", 4: "4分の1", 5: "5分の1" };
+  var THINGS_J = { cars: "車", bikes: "自転車", lorries: "トラック", "red beads": "赤いビーズ", "blue beads": "青いビーズ", apples: "りんご", pears: "なし" };
+  // 長い試行リストは「最初の2つ … 最後の1つ」に縮める
+  function shortList(arr, max) { max = max || 6; return arr.length <= max ? arr : arr.slice(0, 2).concat(["…"], arr.slice(arr.length - (max - 3))); }
+  // (r−2) + (r−3) + … + 1
+  function downSum(top) { var a = []; for (var i = top; i >= 1; i--) a.push(i); return a.length > 5 ? a.slice(0, 3).join(" + ") + " + … + 1" : a.join(" + "); }
+  function sumStr(x) { return String(x).split("").join(" + ") + " = " + digitSum(x); }
+  function m3(s) { return s % 3 === 0 ? "✓ (" + s + " = 3 × " + s / 3 + ")" : "✗"; }
+  function m9(s) { return s % 9 === 0 ? "✓ (" + s + " = 9 × " + s / 9 + ")" : "✗"; }
   var PSTORIES = {
     count: {
       digit: function () {
         var N = pick([100, 100, 200]), dg = rnd(1, 9), mode = pick(["contain", "avoid"]), c = digitCounts(N, dg);
         var dd = String(dg) + dg, ans = mode === "contain" ? c.contain : N - c.contain;
-        return { unit: "numbers", ans: ans, d: { N: N, dg: dg, mode: mode },
+        var steps = [
+          H("Start with 1 to 99. Numbers with " + dg + " in the ONES place: " + dg + ", 1" + dg + ", 2" + dg + ", … , 9" + dg + " → 10 numbers.",
+            "まず 1〜99 で考える。一の位が " + dg + "：" + dg + "、1" + dg + "、2" + dg + "、…、9" + dg + " → 10個。"),
+          H("Numbers with " + dg + " in the TENS place: " + dg + "0, " + dg + "1, … , " + dg + "9 → 10 numbers.",
+            "十の位が " + dg + "：" + dg + "0、" + dg + "1、…、" + dg + "9 → 10個。"),
+          H(dd + " is in BOTH lists. It has two " + dg + "s, but it is only ONE number. So 10 + 10 − 1 = 19 numbers from 1 to 99.",
+            dd + " は両方のリストに入っている。" + dg + " が2つあっても、数としては1つ。だから 10 ＋ 10 − 1 ＝ 19個（1〜99）。")
+        ];
+        var tot = 19;
+        if (N === 100) {
+          if (dg === 1) { tot += 1; steps.push(H("100 has a 1 too: 19 + 1 = 20.", "100 にも 1 がある：19 ＋ 1 ＝ 20個。")); }
+          else steps.push(H("100 has no " + dg + ", so it is still 19.", "100 には " + dg + " がないので、19個のまま。"));
+        } else if (dg === 1) {
+          tot += 100;
+          steps.push(H("100 to 199: EVERY number starts with 1 → 100 more numbers. 200 has no 1. 19 + 100 = 119.",
+            "100〜199：全部の数が 1 で始まる → 100個ふえる。200 には 1 がない。19 ＋ 100 ＝ 119個。"));
+        } else {
+          tot += 19 + (dg === 2 ? 1 : 0);
+          steps.push(H("100 to 199 works just like 1 to 99 → 19 more." + (dg === 2 ? " And 200 has a 2 → 1 more. 19 + 19 + 1 = 39." : " 200 has no " + dg + ". 19 + 19 = 38."),
+            "100〜199 も 1〜99 と同じ → また19個。" + (dg === 2 ? "200 にも 2 がある → 1個。19 ＋ 19 ＋ 1 ＝ 39個。" : "200 には " + dg + " がない。19 ＋ 19 ＝ 38個。")));
+        }
+        if (mode === "avoid") steps.push(H("The question asks for numbers WITHOUT a " + dg + ": " + N + " − " + tot + " = " + ans + ".",
+          "聞かれているのは " + dg + " が“入っていない”数：" + N + " − " + tot + " ＝ " + ans + "。"));
+        return { unit: "numbers", ans: ans, d: { N: N, dg: dg, mode: mode }, chk: tot === c.contain,
           story: mode === "contain"
             ? "How many of the whole numbers from 1 to " + N + " have at least one digit " + dg + " in them?"
             : "A street has houses numbered 1 to " + N + ". Someone wants a house whose number does NOT have the digit " + dg + " in it. How many houses can they choose from?",
-          steps: ["List them in groups: " + dg + " in the ones place (" + dg + ", 1" + dg + ", 2" + dg + " …), then " + dg + " in the tens place (" + dg + "0 to " + dg + "9)" + (N === 200 && dg <= 2 ? ", then the hundreds." : "."),
-            dd + " has the digit " + dg + " twice — but it is only ONE number. Count it once.",
-            c.contain + " numbers have a " + dg + (mode === "avoid" ? ", so " + N + " − " + c.contain + " = " + ans + " do not." : ".")] };
+          steps: steps };
       },
       pairs: function () {
         var n = rnd(5, 12), ans = n * (n - 1) / 2;
         return { unit: "handshakes", ans: ans, d: { n: n },
           story: n + " children meet at a party. Every child shakes hands with every other child exactly once. How many handshakes are there?",
-          steps: ["Each child shakes " + (n - 1) + " hands: " + n + " × " + (n - 1) + " = " + n * (n - 1) + ".",
-            "But each handshake has two people, so it was counted twice: " + n * (n - 1) + " ÷ 2 = " + ans + "."] };
+          steps: [H("Try it small first: 4 children A, B, C, D. Handshakes: AB, AC, AD, BC, BD, CD → 6. (BA is the same as AB.)",
+              "まず小さい数で：4人（A・B・C・D）なら AB、AC、AD、BC、BD、CD → 6回。（BA は AB と同じ）"),
+            H("Each child shakes " + (n - 1) + " hands (everyone except themselves): " + n + " × " + (n - 1) + " = " + n * (n - 1) + ".",
+              "1人が握手するのは自分以外の " + (n - 1) + " 人：" + n + " × " + (n - 1) + " ＝ " + n * (n - 1) + "。"),
+            H("But every handshake has TWO people, so it was counted twice: " + n * (n - 1) + " ÷ 2 = " + ans + ".",
+              "でも1回の握手には2人いるので、2回ずつ数えている：" + n * (n - 1) + " ÷ 2 ＝ " + ans + "。"),
+            H("Another way: the 1st child shakes " + (n - 1) + " new hands, the 2nd " + (n - 2) + " new, … , the last 0 new: " + downSum(n - 1) + " = " + ans + ".",
+              "別の数え方：1人目は新しく " + (n - 1) + " 回、2人目は " + (n - 2) + " 回、…、最後の人は0回：" + downSum(n - 1) + " ＝ " + ans + "。")] };
       },
       circle: function () {
         var nk = pick([[6, 2], [7, 2], [8, 2], [7, 3], [8, 3], [9, 3]]), n = nk[0], k = nk[1];
-        var a = lineWays(n - 3, k - 1), b = lineWays(n - 1, k), ans = a + b;
-        return { unit: "ways", ans: ans, d: { n: n, k: k },
+        var ans = lineWays(n - 3, k - 1) + lineWays(n - 1, k), r = n - 3, steps;
+        if (k === 2) steps = [
+          H("Give the first popper to any friend: " + n + " choices.", "1つ目のクラッカーをだれかに渡す：" + n + " 通り。"),
+          H("The second popper can’t go to that friend or to the 2 friends next to them. " + n + " − 3 = " + (n - 3) + " choices.",
+            "2つ目は、その人と両どなりの2人には渡せない。" + n + " − 3 ＝ " + (n - 3) + " 通り。"),
+          H(n + " × " + (n - 3) + " = " + n * (n - 3) + ". But “Ann then Ben” and “Ben then Ann” are the same way, so each way was counted twice.",
+            n + " × " + (n - 3) + " ＝ " + n * (n - 3) + "。でも「Aさん→Bさん」と「Bさん→Aさん」は同じ渡し方なので、2回ずつ数えている。"),
+          H(n * (n - 3) + " ÷ 2 = " + ans + ".", n * (n - 3) + " ÷ 2 ＝ " + ans + "。")];
+        else steps = [
+          H("Give the first popper to any friend: " + n + " choices. The 2 friends next to them can’t have one.",
+            "1つ目をだれかに渡す：" + n + " 通り。その両どなりの2人はもらえない。"),
+          H("That leaves " + n + " − 3 = " + r + " friends, and they now sit in a ROW (the circle is broken).",
+            "残りは " + n + " − 3 ＝ " + r + " 人。この人たちは一列に並んでいる（輪が切れている）。"),
+          H("Choose 2 of these " + r + " in a row, not next to each other. The 1st friend in the row can pair with " + (r - 2) + " friends further along (not the one right next to them); the 2nd friend with " + (r - 3) + "; … → " + downSum(r - 2) + " = " + (r - 1) * (r - 2) / 2 + ".",
+            "一列の " + r + " 人から、となり合わない2人を選ぶ。列の1番目の人と組めるのは、それより右の（となりを除く）" + (r - 2) + " 人。2番目の人は " + (r - 3) + " 人、… → " + downSum(r - 2) + " ＝ " + (r - 1) * (r - 2) / 2 + "。"),
+          H(n + " × " + (r - 1) * (r - 2) / 2 + " = " + n * (r - 1) * (r - 2) / 2 + ". Each way has 3 poppers, and we could have started from any of the 3, so each way was counted 3 times.",
+            n + " × " + (r - 1) * (r - 2) / 2 + " ＝ " + n * (r - 1) * (r - 2) / 2 + "。1つの渡し方には3人いて、だれから数え始めても同じになるので、3回ずつ数えている。"),
+          H(n * (r - 1) * (r - 2) / 2 + " ÷ 3 = " + ans + ".", n * (r - 1) * (r - 2) / 2 + " ÷ 3 ＝ " + ans + "。")];
+        return { unit: "ways", ans: ans, d: { n: n, k: k }, chk: (k === 2 ? n * (n - 3) / 2 : n * (r - 1) * (r - 2) / 6) === ans,
           story: n + " friends sit round a circular table. " + k + " of them get a party popper, but no two friends sitting next to each other both get one. In how many different ways can the poppers be given out?",
-          steps: ["Number the seats 1 to " + n + ". In a circle, seat " + n + " is next to seat 1 too.",
-            "Seat 1 HAS a popper: seats 2 and " + n + " can’t. Choose " + (k - 1) + " more from seats 3 to " + (n - 1) + " (no two together): " + a + " ways.",
-            "Seat 1 has NO popper: choose " + k + " from seats 2 to " + n + " in a line (no two together): " + b + " ways.",
-            a + " + " + b + " = " + ans + ". Each way is counted only once."] };
+          steps: steps };
       }
     },
     ratio: {
       one: function () {
         var n = rnd(2, 5), k = rnd(3, 9), A = (n + 1) * k, B = n * k, T = A + B, th = pick([["cars", "bikes"], ["red beads", "blue beads"], ["apples", "pears"]]);
+        var jA = THINGS_J[th[0]], jB = THINGS_J[th[1]], Cap = th[0][0].toUpperCase() + th[0].slice(1);
         return { unit: th[0], ans: A, d: { n: n, k: k, T: T, ask: "A" },
           story: "There are " + FRAC_W[n] + " more " + th[0] + " than " + th[1] + ". There are " + T + " " + th[0] + " and " + th[1] + " altogether. How many " + th[0] + " are there?",
-          steps: ["“" + FRAC_W[n] + " more” (1/" + n + " more) means: for every " + n + " " + th[1] + " there are " + (n + 1) + " " + th[0] + ". Ratio " + (n + 1) + " : " + n + ".",
-            "One group is " + (n + 1) + " + " + n + " = " + (2 * n + 1) + ". " + T + " ÷ " + (2 * n + 1) + " = " + k + " groups.",
-            th[0][0].toUpperCase() + th[0].slice(1) + ": " + (n + 1) + " × " + k + " = " + A + "."] };
+          steps: [H("Draw the " + th[1] + " as " + n + " equal boxes. “" + FRAC_W[n] + " more” means one more box: the " + th[0] + " are " + (n + 1) + " boxes.",
+              jB + "を同じ大きさの箱 " + n + " 個でかく。「" + FRAC_J[n] + "多い」は箱が1個多いということ：" + jA + "は " + (n + 1) + " 個。"),
+            H("So " + th[0] + " : " + th[1] + " = " + (n + 1) + " : " + n + " (NOT 1 : " + n + ").", "だから " + jA + "：" + jB + " ＝ " + (n + 1) + "：" + n + "（1：" + n + " ではない）。"),
+            H("Altogether there are " + (n + 1) + " + " + n + " = " + (2 * n + 1) + " boxes, and they hold " + T + ". One box = " + T + " ÷ " + (2 * n + 1) + " = " + k + ".",
+              "箱は全部で " + (n + 1) + " ＋ " + n + " ＝ " + (2 * n + 1) + " 個、合計は " + T + "。箱1個 ＝ " + T + " ÷ " + (2 * n + 1) + " ＝ " + k + "。"),
+            H(Cap + ": " + (n + 1) + " boxes × " + k + " = " + A + ".", jA + "：" + (n + 1) + " 個 × " + k + " ＝ " + A + "。"),
+            H("Check: " + th[1] + " = " + B + ". " + FRAC_W[n][0].toUpperCase() + FRAC_W[n].slice(1) + " of " + B + " is " + k + ", and " + B + " + " + k + " = " + A + " ✓",
+              "確かめ：" + jB + "は " + B + "。" + B + " の" + FRAC_J[n] + "は " + k + "、" + B + " ＋ " + k + " ＝ " + A + " ✓")] };
       },
       chain: function () {
         var n = rnd(2, 5), m = rnd(2, 5), a = (n + 1) * (m + 1), b = n * (m + 1), c = n * m, S = a + b + c;
@@ -751,10 +809,18 @@
         var th = ["cars", "bikes", "lorries"];
         return { unit: ask === "A" ? th[0] : th[2], ans: ans, d: { n: n, m: m, k: k, T: T, ask: ask },
           story: "In a car park there are " + FRAC_W[n] + " more cars than bikes, and " + FRAC_W[m] + " more bikes than lorries. There are " + T + " vehicles altogether. How many " + (ask === "A" ? "cars" : "lorries") + " are there?",
-          steps: ["Cars : bikes = " + (n + 1) + " : " + n + ".  Bikes : lorries = " + (m + 1) + " : " + m + ".",
-            "Make the bikes match: cars : bikes = " + a + " : " + b + ",  bikes : lorries = " + b + " : " + c + ".  So cars : bikes : lorries = " + a + " : " + b + " : " + c + ".",
-            a + " + " + b + " + " + c + " = " + S + ". " + T + " ÷ " + S + " = " + k + (k === 1 ? " group." : " groups."),
-            (ask === "A" ? "Cars: " + a : "Lorries: " + c) + " × " + k + " = " + ans + "."] };
+          steps: [H("“" + FRAC_W[n] + " more cars than bikes”: bikes " + n + " boxes, cars " + (n + 1) + " boxes. Cars : bikes = " + (n + 1) + " : " + n + ".",
+              "「車は自転車より" + FRAC_J[n] + "多い」：自転車 " + n + " 箱、車 " + (n + 1) + " 箱。車：自転車 ＝ " + (n + 1) + "：" + n + "。"),
+            H("“" + FRAC_W[m] + " more bikes than lorries”: lorries " + m + " boxes, bikes " + (m + 1) + " boxes. Bikes : lorries = " + (m + 1) + " : " + m + ".",
+              "「自転車はトラックより" + FRAC_J[m] + "多い」：トラック " + m + " 箱、自転車 " + (m + 1) + " 箱。自転車：トラック ＝ " + (m + 1) + "：" + m + "。"),
+            H("The bikes are " + n + " in one ratio and " + (m + 1) + " in the other — but they are the SAME bikes. Make both " + b + " (" + n + " × " + (m + 1) + "):",
+              "自転車が片方では " + n + "、もう片方では " + (m + 1) + "。でも同じ自転車なので、どちらも " + b + "（" + n + " × " + (m + 1) + "）にそろえる："),
+            H("cars : bikes = " + (n + 1) + " : " + n + " → × " + (m + 1) + " → " + a + " : " + b + ".   bikes : lorries = " + (m + 1) + " : " + m + " → × " + n + " → " + b + " : " + c + ".",
+              "車：自転車 ＝ " + (n + 1) + "：" + n + " → × " + (m + 1) + " → " + a + "：" + b + "。自転車：トラック ＝ " + (m + 1) + "：" + m + " → × " + n + " → " + b + "：" + c + "。"),
+            H("Cars : bikes : lorries = " + a + " : " + b + " : " + c + ". One set = " + a + " + " + b + " + " + c + " = " + S + ". " + T + " ÷ " + S + " = " + k + " sets.",
+              "車：自転車：トラック ＝ " + a + "：" + b + "：" + c + "。1組 ＝ " + S + " 台。" + T + " ÷ " + S + " ＝ " + k + " 組。"),
+            H((ask === "A" ? "Cars: " + a : "Lorries: " + c) + " × " + k + " = " + ans + ".   Check: " + a * k + " + " + b * k + " + " + c * k + " = " + T + " ✓",
+              (ask === "A" ? "車：" + a : "トラック：" + c) + " × " + k + " ＝ " + ans + "。確かめ：" + a * k + " ＋ " + b * k + " ＋ " + c * k + " ＝ " + T + " ✓")] };
       }
     },
     multiple: {
@@ -763,11 +829,20 @@
           var pre = rnd(10, 99), dir = pick(["largest", "smallest"]), ok6 = -1, ok3 = -1;
           for (var i = 0; i <= 9; i++) { var dg = dir === "largest" ? i : 9 - i, x = pre * 10 + dg; if (x % 6 === 0) ok6 = dg; if (x % 3 === 0) ok3 = dg; }
           if (ok6 <= 0 || ok6 === ok3 || ok6 === (dir === "largest" ? 8 : 0)) continue;
+          var tries = [], cands = dir === "largest" ? [8, 6, 4, 2, 0] : [0, 2, 4, 6, 8];
+          for (var j = 0; j < cands.length; j++) {
+            var v = pre * 10 + cands[j], s = digitSum(v);
+            tries.push(H("□ = " + cands[j] + ": " + v + " → " + sumStr(v) + " " + m3(s), "□ ＝ " + cands[j] + "：" + v + " → " + sumStr(v) + " " + m3(s)));
+            if (cands[j] === ok6) break;
+          }
           return { unit: "", ans: ok6, d: { pos: "last", pre: pre, dir: dir },
             story: "The three-digit number " + pre + "□ is a multiple of 6. What is the " + dir + " digit that can go in the box?",
-            steps: ["A multiple of 6 must be even AND a multiple of 3.", "Even: the box must be 0, 2, 4, 6 or 8.",
-              "Multiple of 3: the digits must add up to a multiple of 3. " + String(pre).split("").join(" + ") + " + □.",
-              "The " + dir + " even digit that works is " + ok6 + ": " + (pre * 10 + ok6) + " ÷ 6 = " + (pre * 10 + ok6) / 6 + "."] };
+            steps: [H("6 = 2 × 3, so a multiple of 6 must pass TWO tests: it is even, AND its digits add up to a multiple of 3.",
+                "6 ＝ 2 × 3 なので、6の倍数は2つのテストに合格する：偶数であること、そして各位の和が3の倍数であること。"),
+              H("□ is the last digit, so it must be even: 0, 2, 4, 6 or 8. Try them " + (dir === "largest" ? "from the biggest" : "from the smallest") + ":",
+                "□ は一の位なので偶数：0・2・4・6・8。" + (dir === "largest" ? "大きい方" : "小さい方") + "から試す：")]
+              .concat(tries, [H("The " + dir + " digit is " + ok6 + ". Check: " + (pre * 10 + ok6) + " ÷ 6 = " + (pre * 10 + ok6) / 6 + " ✓",
+                (dir === "largest" ? "一番大きい" : "一番小さい") + "数字は " + ok6 + "。確かめ：" + (pre * 10 + ok6) + " ÷ 6 ＝ " + (pre * 10 + ok6) / 6 + " ✓")]) };
         }
       },
       middle: function () {
@@ -775,24 +850,54 @@
           var a = rnd(1, 9), c = pick([0, 2, 4, 6, 8]), dir = pick(["largest", "smallest"]), best = -1;
           for (var i = 0; i <= 9; i++) { var dg = dir === "largest" ? i : 9 - i; if ((a * 100 + dg * 10 + c) % 6 === 0) best = dg; }
           if (best <= 0 || best === (dir === "largest" ? 9 : 0)) continue;
+          var tries = [];
+          for (var t = dir === "largest" ? 9 : 0; ; t += dir === "largest" ? -1 : 1) {
+            var v = a * 100 + t * 10 + c, s = digitSum(v);
+            tries.push(H("□ = " + t + ": " + v + " → " + sumStr(v) + " " + m3(s), "□ ＝ " + t + "：" + v + " → " + sumStr(v) + " " + m3(s)));
+            if (t === best) break;
+          }
           return { unit: "", ans: best, d: { pos: "middle", a: a, c: c, dir: dir },
             story: "The three-digit number " + a + "□" + c + " is a multiple of 6. What is the " + dir + " digit that can go in the box?",
-            steps: ["A multiple of 6 must be even AND a multiple of 3.", "It ends in " + c + ", so it is already even.",
-              "Multiple of 3: " + a + " + □ + " + c + " must be a multiple of 3.",
-              "The " + dir + " digit that works is " + best + ": " + (a * 100 + best * 10 + c) + " ÷ 6 = " + (a * 100 + best * 10 + c) / 6 + "."] };
+            steps: [H("A multiple of 6 must be even AND its digits must add up to a multiple of 3.", "6の倍数は、偶数で、しかも各位の和が3の倍数。"),
+              H("It ends in " + c + ", so it is already even. Only the digit sum is left to check.", "一の位が " + c + " なので、もう偶数。あとは各位の和だけ確かめる。"),
+              H("Try □ " + (dir === "largest" ? "from 9 downwards" : "from 0 upwards") + ":", "□ を" + (dir === "largest" ? " 9 から小さい方へ" : " 0 から大きい方へ") + "試す：")]
+              .concat(shortList(tries, 7).map(function (x) { return x === "…" ? H("…", "…") : x; }),
+                [H("The " + dir + " digit is " + best + ". Check: " + (a * 100 + best * 10 + c) + " ÷ 6 = " + (a * 100 + best * 10 + c) / 6 + " ✓",
+                  (dir === "largest" ? "一番大きい" : "一番小さい") + "数字は " + best + "。確かめ：" + (a * 100 + best * 10 + c) + " ÷ 6 ＝ " + (a * 100 + best * 10 + c) / 6 + " ✓")]) };
         }
       },
       palindrome: function () {
         var L = pick([4, 5, 6]), m = pick([6, 6, 9]), dir = pick(["largest", "smallest"]), no9 = dir === "largest" && Math.random() < 0.4;
         var ok = function (x) { return x % m === 0 && (!no9 || String(x).indexOf("9") < 0); };
         var ans = palSearch(L, dir, ok), shape = { 4: "ABBA", 5: "ABCBA", 6: "ABCCBA" }[L];
-        return { unit: "", ans: ans, d: { L: L, m: m, dir: dir, no9: no9 },
+        // 表示用の試行：「A は偶数」「9 なし」で最初から外れるものは飛ばし、各位の和だけで判定する
+        var tries = [], hit = false;
+        palSearch(L, dir, function (x) {
+          if (m === 6 && x % 2) return false;
+          if (no9 && String(x).indexOf("9") >= 0) return false;
+          var s = digitSum(x), good = s % (m === 6 ? 3 : 9) === 0;
+          tries.push(H(x + ": " + sumStr(x) + " " + (m === 6 ? m3(s) : m9(s)), x + "：" + sumStr(x) + " " + (m === 6 ? m3(s) : m9(s))));
+          if (good) hit = x === ans;
+          return good;
+        });
+        var first = m === 6 ? (dir === "largest" ? 8 : 2) : (dir === "largest" ? (no9 ? 8 : 9) : 1);
+        var steps = [H("A " + L + "-digit palindrome has the pattern " + shape + ": the first digit and the last digit are the same, and so on.",
+            L + "けたの回文は " + shape + " の形。最初と最後の数字が同じ（2番目と最後から2番目も同じ…）。")];
+        if (m === 6) steps.push(
+          H("Multiple of 6 = even AND digits add up to a multiple of 3.", "6の倍数 ＝ 偶数 で、各位の和が3の倍数。"),
+          H("A is also the LAST digit, so A must be even. " + (dir === "largest" ? "Biggest even A = 8 (9 would make it odd)." : "Smallest even A = 2 (A can’t be 0)."),
+            "A は一の位でもあるので偶数。" + (dir === "largest" ? "一番大きい偶数は A ＝ 8（9 だと奇数になる）。" : "一番小さい偶数は A ＝ 2（A は 0 にできない）。")));
+        if (m === 6 && no9) steps.push(H("No 9s are allowed, so skip any palindrome with a 9 in it.", "9 は使えないので、9 が入っている回文は飛ばす。"));
+        else steps.push(H("Multiple of 9 = digits add up to 9, 18, 27, 36 … Start with A = " + first + (no9 ? " (no 9s allowed)" : "") + ".",
+          "9の倍数 ＝ 各位の和が 9・18・27・36 …。A ＝ " + first + " から始める" + (no9 ? "（9 は使えない）" : "") + "。"));
+        steps.push(H("Now try the palindromes " + (dir === "largest" ? "from the biggest, going down" : "from the smallest, going up") + ", and add up the digits:",
+          "回文を" + (dir === "largest" ? "大きい順" : "小さい順") + "に試して、各位の和を出す："));
+        steps = steps.concat(shortList(tries, 6).map(function (x) { return x === "…" ? H("…", "…") : x; }));
+        steps.push(H("The first one that passes is " + ans + ". Check: " + ans + " ÷ " + m + " = " + ans / m + " ✓",
+          "最初に合格するのは " + ans + "。確かめ：" + ans + " ÷ " + m + " ＝ " + ans / m + " ✓"));
+        return { unit: "", ans: ans, d: { L: L, m: m, dir: dir, no9: no9 }, chk: hit,
           story: "A palindrome reads the same forwards and backwards, like 2552. What is the " + dir + " " + ["", "", "", "", "four", "five", "six"][L] + "-digit palindrome that is a multiple of " + m + (no9 ? " and has no digit 9" : "") + "?",
-          steps: ["A " + L + "-digit palindrome looks like " + shape + ".",
-            m === 6 ? "Multiple of 6: it must be even (so the first digit A, which is also the last, is even) AND its digits add up to a multiple of 3."
-              : "Multiple of 9: its digits must add up to a multiple of 9.",
-            "Start with the " + (dir === "largest" ? "biggest" : "smallest") + " possible first digits and adjust the middle until the digit sum works.",
-            "The answer is " + fmt(ans) + " (digit sum " + digitSum(ans) + ")."] };
+          steps: steps };
       }
     },
     area: {
@@ -800,25 +905,38 @@
         var w = rnd(2, 9), A = 2 * w * w;
         return { unit: "m", ans: 2 * w, d: { w: w, A: A },
           story: "A rectangular room is twice as long as it is wide. Its area is " + A + " m². How long is the room?",
-          steps: ["Twice as long as wide: the room is two squares side by side.", "Each square is " + A + " ÷ 2 = " + w * w + " m², so each side is " + w + " m (" + w + " × " + w + " = " + w * w + ").",
-            "Length = 2 × " + w + " = " + 2 * w + " m."] };
+          steps: [H("Draw it: twice as long as wide = two squares side by side.", "図をかく：長さが幅の2倍 ＝ 正方形が2つ横に並んだ形。"),
+            H("Each square: " + A + " ÷ 2 = " + w * w + " m².", "正方形1つ：" + A + " ÷ 2 ＝ " + w * w + " m²。"),
+            H("Which number times itself makes " + w * w + "? " + w + " × " + w + " = " + w * w + ", so each square is " + w + " m on each side. That is the width.",
+              "同じ数を2回かけて " + w * w + " になるのは？ " + w + " × " + w + " ＝ " + w * w + "。だから正方形の1辺は " + w + " m。これが幅。"),
+            H("Length = two squares = 2 × " + w + " = " + 2 * w + " m.", "長さ ＝ 正方形2つ分 ＝ 2 × " + w + " ＝ " + 2 * w + " m。"),
+            H("Check: " + 2 * w + " × " + w + " = " + A + " m² ✓", "確かめ：" + 2 * w + " × " + w + " ＝ " + A + " m² ✓")] };
       },
       next: function () {
         var w = rnd(2, 8), A = 2 * w * w, x; do x = rnd(2, 9); while (x === w || x === 2 * w);
         var B = 2 * w * x;
         return { unit: "m", ans: x, d: { w: w, A: A, B: B, x: x },
           story: "Room 1 is twice as long as it is wide, with an area of " + A + " m². Room 2 is a rectangle next to it, sharing Room 1’s LONG wall. Room 2 has an area of " + B + " m². How wide is Room 2 (the side that is not shared)?",
-          steps: ["Room 1: two squares of " + w * w + " m², so it is " + w + " m wide and " + 2 * w + " m long.", "The shared long wall is " + 2 * w + " m.",
-            "Room 2: " + B + " ÷ " + 2 * w + " = " + x + " m."] };
+          steps: [H("Room 1 is two squares: " + A + " ÷ 2 = " + w * w + " m² each, and " + w + " × " + w + " = " + w * w + ".",
+              "Room 1 は正方形2つ：1つ " + A + " ÷ 2 ＝ " + w * w + " m²、" + w + " × " + w + " ＝ " + w * w + "。"),
+            H("So Room 1 is " + w + " m wide and " + 2 * w + " m long.", "だから Room 1 は幅 " + w + " m、長さ " + 2 * w + " m。"),
+            H("Room 2 shares the LONG wall, so one side of Room 2 is " + 2 * w + " m.", "Room 2 は“長い”壁を共有しているので、Room 2 の1辺は " + 2 * w + " m。"),
+            H("Area = side × side, so the other side = " + B + " ÷ " + 2 * w + " = " + x + " m.", "面積 ＝ たて × よこ なので、もう1辺 ＝ " + B + " ÷ " + 2 * w + " ＝ " + x + " m。"),
+            H("Check: " + 2 * w + " × " + x + " = " + B + " m² ✓", "確かめ：" + 2 * w + " × " + x + " ＝ " + B + " m² ✓")] };
       },
       outline: function () {
         var w = rnd(2, 8), A = 2 * w * w, x; do x = rnd(2, 9); while (x === w || x === 2 * w);
         var B = 2 * w * x, P = 2 * (2 * w + w + x);
         return { unit: "m", ans: P, d: { w: w, A: A, B: B, x: x },
           story: "Room 1 is twice as long as it is wide, with an area of " + A + " m². Room 2 shares Room 1’s LONG wall, and the two rooms together make one big rectangle. Room 2 has an area of " + B + " m². What is the perimeter of the big rectangle?",
-          steps: ["Room 1 is " + w + " m by " + 2 * w + " m. The shared wall is " + 2 * w + " m.", "Room 2 is " + B + " ÷ " + 2 * w + " = " + x + " m wide.",
-            "Big rectangle: " + 2 * w + " m by " + w + " + " + x + " = " + (w + x) + " m. The wall in the middle is inside, so it is not part of the perimeter.",
-            "Perimeter = 2 × (" + 2 * w + " + " + (w + x) + ") = " + P + " m."] };
+          steps: [H("Room 1 is two squares of " + w * w + " m² (" + w + " × " + w + "), so it is " + w + " m by " + 2 * w + " m.",
+              "Room 1 は " + w * w + " m² の正方形2つ（" + w + " × " + w + "）なので、" + w + " m × " + 2 * w + " m。"),
+            H("Room 2 shares the " + 2 * w + " m wall: its other side is " + B + " ÷ " + 2 * w + " = " + x + " m.",
+              "Room 2 は " + 2 * w + " m の壁を共有：もう1辺は " + B + " ÷ " + 2 * w + " ＝ " + x + " m。"),
+            H("Put them together: the big rectangle is " + 2 * w + " m long and " + w + " + " + x + " = " + (w + x) + " m wide.",
+              "2つを合わせると、大きな長方形は長さ " + 2 * w + " m、幅 " + w + " ＋ " + x + " ＝ " + (w + x) + " m。"),
+            H("The shared wall is now INSIDE the big rectangle, so it is not part of the perimeter.", "共有している壁は大きな長方形の“内側”なので、周の長さには入らない。"),
+            H("Perimeter = " + 2 * w + " + " + (w + x) + " + " + 2 * w + " + " + (w + x) + " = " + P + " m.", "周の長さ ＝ " + 2 * w + " ＋ " + (w + x) + " ＋ " + 2 * w + " ＋ " + (w + x) + " ＝ " + P + " m。")] };
       }
     },
     cycle: {
@@ -830,11 +948,19 @@
           if (L > 60 || L === a * b * c || L === Math.max(a, b, c)) continue;
           var ctx = pick([["Three lights flash together right now. One flashes every ", " seconds, one every ", " seconds and one every ", " seconds. After how many seconds will they next all flash together?", "seconds"],
             ["Three buses leave the bus station together at 8 a.m. One leaves every ", " minutes, one every ", " minutes and one every ", " minutes. After how many minutes will all three next leave together?", "minutes"]]);
+          var mx = Math.max(a, b, c), others = [a, b, c].filter(function (v) { return v !== mx; }), tries = [];
+          for (var v = mx; v <= L; v += mx) {
+            var bad = others.filter(function (o) { return v % o; });
+            tries.push(bad.length ? H(v + ": not in the " + bad[0] + " times table ✗", v + "：" + bad[0] + " の段にない ✗") : H(v + ": in the " + others[0] + " and " + others[1] + " times tables too ✓", v + "：" + others[0] + " の段にも " + others[1] + " の段にもある ✓"));
+          }
           return { unit: ctx[4], ans: L, d: { a: a, b: b, c: c },
             story: ctx[0] + a + ctx[1] + b + ctx[2] + c + ctx[3],
-            steps: ["We need the smallest number that is a multiple of " + a + ", " + b + " and " + c + " (the lowest common multiple).",
-              "Count up in " + Math.max(a, b, c) + "s and check each one: is it also a multiple of the other two?",
-              "The first one that works is " + L + ". (" + a + " × " + b + " × " + c + " = " + a * b * c + " also works, but it is not the FIRST time.)"] };
+            steps: [H("They all happen together again at a number that is in the " + a + ", " + b + " AND " + c + " times tables (a common multiple). We want the FIRST one.",
+                "3つがまたそろうのは、" + a + "・" + b + "・" + c + " のどの段にも出てくる数（公倍数）のとき。知りたいのは“最初”の1つ。"),
+              H("Count up in the biggest, " + mx + "s, and check each one:", "一番大きい " + mx + " の段で数えて、1つずつ確かめる：")]
+              .concat(shortList(tries, 7).map(function (x) { return x === "…" ? H("…", "…") : x; }),
+                [H("The first one is " + L + ". (" + a + " × " + b + " × " + c + " = " + a * b * c + " also works, but it is not the FIRST time.)",
+                  "最初は " + L + "。（" + a + " × " + b + " × " + c + " ＝ " + a * b * c + " でもそろうけれど、“最初”ではない）")]) };
         }
       },
       weekday: function () {
@@ -842,11 +968,18 @@
           var s = [2, 3, 4, 6], a = pick(s), b = pick(s); if (a === b) continue;
           var L = lcm(a, b), w = rnd(1, 6), t = L; while (t % 7 !== w) t += L;   // L は 7 の倍数にならない＝必ず答えがある
           if (L % 7 === w || t === w || t > 60) continue;
+          var tries = [];
+          for (var v = L; v <= t; v += L) tries.push(H("Day " + v + " → " + DAYS[v % 7] + (v === t ? " ✓" : " ✗"), v + " 日後 → " + JDAYS[v % 7] + "曜日" + (v === t ? " ✓" : " ✗")));
           return { unit: "days", ans: t, d: { a: a, b: b, w: w },
             story: "Today is Monday. Three people water the plants today: one waters them every day, one every " + a + " days and one every " + b + " days. A fourth person only waters them on " + DAYS[w] + "s. In how many days’ time will all four next water the plants on the same day?",
-            steps: ["The first three: the day must be a multiple of " + a + " and " + b + " → " + L + ", " + 2 * L + ", " + 3 * L + " … days from today.",
-              DAYS[w] + " is " + w + " days after Monday, so it must also be " + w + " more than a multiple of 7 (" + w + ", " + (w + 7) + ", " + (w + 14) + " …).",
-              "Go through " + L + ", " + 2 * L + ", " + 3 * L + " … and check the day of the week. The first " + DAYS[w] + " is day " + t + "."] };
+            steps: [H("The every-day person is there every day, so we can forget about them.", "毎日の人はいつでもいるので、考えなくてよい。"),
+              H("Every " + a + " days and every " + b + " days: they meet on the " + a + " and " + b + " times tables together → day " + L + ", " + 2 * L + ", " + 3 * L + " …",
+                a + " 日ごとと " + b + " 日ごと：両方の段に出てくる日 → " + L + "、" + 2 * L + "、" + 3 * L + " … 日後。"),
+              H("Find the day of the week: today is day 0 (Monday), and every 7 days it is Monday again. Divide by 7 and look at the remainder (0 = Mon, 1 = Tue, 2 = Wed …).",
+                "曜日の出し方：今日＝0日後（月曜日）、7日ごとにまた月曜日。7でわったあまりを見る（0＝月、1＝火、2＝水 …）。")]
+              .concat(shortList(tries, 7).map(function (x) { return x === "…" ? H("…", "…") : x; }),
+                [H("The first " + DAYS[w] + " is day " + t + ". Check: " + t + " ÷ 7 = " + Math.floor(t / 7) + " r " + w + " → " + DAYS[w] + " ✓",
+                  "最初の" + JDAYS[w] + "曜日は " + t + " 日後。確かめ：" + t + " ÷ 7 ＝ " + Math.floor(t / 7) + " あまり " + w + " → " + JDAYS[w] + "曜日 ✓")]) };
         }
       }
     }
@@ -855,7 +988,7 @@
     return function (prefTag) {
       var tag = prefTag || pick(Object.keys(PSTORIES[fam])), st;
       do st = PSTORIES[fam][tag](); while (fam !== "multiple" && new RegExp("(^|[^0-9])" + st.ans + "([^0-9]|$)").test(st.story));   // 答えの数が文中に出るものは出さない（倍数の □ は除く）
-      return measP(id, tag, null, st.d, st.unit, st.ans, st.steps, { story: st.story, text: st.story, pmc: fam });
+      return measP(id, tag, null, st.d, st.unit, st.ans, st.steps, { story: st.story, text: st.story, pmc: fam, chk: st.chk });
     };
   }
   // PMC のよくある間違い：[値, code, 手がかり]
@@ -876,7 +1009,7 @@
         T_(d.n * (d.n - 1), "double-count", "Did you count each handshake twice? When A shakes B’s hand, that is the same handshake as B shaking A’s.", "握手を2回ずつ数えたかな？ AとBの握手と、BとAの握手は同じ1回だよ。");
         T_(d.n * d.n, "self", "Can a child shake their own hand? Each child shakes " + (d.n - 1) + " hands.", "自分とは握手しないよね。1人が握手するのは " + (d.n - 1) + " 人だよ。");
       } else {
-        T_(2 * p.answer.x, "double-count", "That is exactly double. Could you have counted each way twice (for example the same seating going round the other way)?", "ちょうど2倍になっているよ。同じ並びを2回数えたかな？（逆まわりで同じになっていない？）");
+        T_(2 * p.answer.x, "double-count", "That is exactly double. The same group of friends is only ONE way — did you count some groups twice?", "ちょうど2倍になっているよ。同じ人たちの組み合わせは1通りだよ。同じ組を2回数えていないかな？");
         T_(lineWays(d.n, d.k), "ends", "Remember it is a circle: the first and last friend sit next to each other too.", "丸いテーブルだから、最初の人と最後の人もとなり同士だよ。");
       }
     } else if (p.type === "pmc-ratio") {

@@ -264,6 +264,9 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
 .readout .rb.lit { background: var(--lamp-soft); border-color: var(--lamp); }
 .steps { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-variant-numeric: tabular-nums; font-size: 17px; }
 .steps li { padding: 8px 12px; background: var(--surface); border-radius: 10px; border: 1px solid var(--line); }
+.steps .step-ja { display: block; font-size: 15px; margin-top: 2px; }
+.how { margin: 4px 0 8px; }
+.how summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
 .ja-line { font-size: 16px; color: var(--muted); }
 </style>
 
@@ -843,7 +846,10 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     var title = ok ? (ui.tries > 1 ? "Got it on the second go." : PRAISE[Math.floor(Math.random() * PRAISE.length)]) : "Here’s how it works.";
     var h = '<div class="feedback ' + (ok ? "ok" : "no") + '" role="status"><p class="fb-title">' + esc(title) + "</p>";
     if (!ok) h += "<p>The answer is <strong>" + esc(answerText(p)) + "</strong>.</p>";
-    if (!ok || ui.tries > 1) h += '<ul class="steps">' + p.steps.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>";
+    // 解説の1行は文字列か {en, ja}（PMC は英日）
+    var stepsH = '<ul class="steps">' + p.steps.map(function (s) { return typeof s === "string" ? "<li>" + esc(s) + "</li>" : "<li>" + esc(s.en) + '<span class="ja-line step-ja">' + esc(s.ja) + "</span></li>"; }).join("") + "</ul>";
+    if (!ok || ui.tries > 1) h += stepsH;
+    else if (p.pmc) h += '<details class="how"><summary>How it works ／ 解き方を見る</summary>' + stepsH + "</details>";
     var a0 = sess.answers[sess.i];
     if (CO && a0 && a0.conf) h += CO.confNote(a0.conf, a0.ok);
     h += '<button class="btn primary" data-action="next">' + (isLast() ? "Finish" : "Next") + " →</button></div>";
