@@ -138,6 +138,18 @@ details summary { cursor: pointer; font-weight: 600; }
     </section>
 
     <section class="panel">
+      <h2>ウィジェットの登録</h2>
+      <p class="small muted" style="margin:0">マイの iPad のホーム画面のウィジェットに出る6桁のコードを入れます。<b>目の前の iPad に出ているコードだけ</b>を入れてください（ほかから届いたコードは入れない）。登録できると、ウィジェットのコードが消えて、今日の学習の様子に変わります。</p>
+      <form id="wclaim-form">
+        <label for="wcode">ウィジェットのコード（6桁）</label><input id="wcode" class="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="off" required>
+        <div class="row"><button class="primary" type="submit">登録する</button><span class="msg" id="wclaim-msg"></span></div>
+      </form>
+      <h2 style="margin-top:14px">登録済みのウィジェット</h2>
+      <ul class="devs" id="wdevs"></ul>
+      <p class="small muted" style="margin:8px 0 0">iPad を買い替えた・なくしたときは「無効にする」。無効にすると戻せません（ウィジェットに新しいコードが出るので、登録し直します）。</p>
+    </section>
+
+    <section class="panel">
       <details>
         <summary>パスワードを変える</summary>
         <form id="pw-form">
@@ -183,10 +195,10 @@ details summary { cursor: pointer; font-weight: 600; }
   var summary = null, rewards = [], reqTitles = {};
   function clearView() {
     gen++; children = [];
-    $("sum").innerHTML = ""; $("days").querySelector("tbody").innerHTML = ""; $("devs").innerHTML = "";
+    $("sum").innerHTML = ""; $("days").querySelector("tbody").innerHTML = ""; $("devs").innerHTML = ""; $("wdevs").innerHTML = "";
     ["pt-sum", "reqs", "rws", "resc", "pt-note"].forEach(function (id) { $(id).innerHTML = ""; });
     $("hist").querySelector("tbody").innerHTML = ""; resetRewardForm(); summary = null;
-    ["load-msg", "claim-msg", "pw-msg", "req-msg", "goal-msg", "rw-msg"].forEach(function (id) { say(id, ""); });
+    ["load-msg", "claim-msg", "wclaim-msg", "pw-msg", "req-msg", "goal-msg", "rw-msg"].forEach(function (id) { say(id, ""); });
   }
 
   async function boot() {
@@ -256,7 +268,8 @@ details summary { cursor: pointer; font-weight: 600; }
         sb.from("points").select("id,reason,period,amount,created_at").eq("child_id", child).order("id", { ascending: false }).limit(30),
         sb.from("rewards").select("id,title,cost,active,sort").eq("child_id", child).order("sort").order("cost"),
         sb.from("redemptions").select("id,title,cost,status,requested_at,decided_at").eq("child_id", child).order("requested_at", { ascending: false }).limit(100),
-        sb.from("rescues").select("day,used_on").eq("child_id", child).order("day", { ascending: false }).limit(10)
+        sb.from("rescues").select("day,used_on").eq("child_id", child).order("day", { ascending: false }).limit(10),
+        sb.rpc("list_widgets", { p_child: child })
       ]);
       if (g !== gen) return;
       [1, 2, 3, 4, 5, 6, 7, 8].forEach(function (k) { if (res[k].error) throw res[k].error; });
@@ -271,6 +284,8 @@ details summary { cursor: pointer; font-weight: 600; }
         '<div class="stat"><b>' + fmt(snaps["rooftop-english"]) + '</b><span>英語の学習状態を保存</span></div>' +
         '<div class="stat"><b>' + fmt(snaps["skyline-maths"]) + '</b><span>算数の学習状態を保存</span></div>';
       renderDevices(res[3].data || []);
+      // ウィジェット（05 を Run する前は関数が無い＝欄を空にしておく）
+      if (res[9].error) $("wdevs").innerHTML = '<li class="muted">（準備中）</li>'; else renderWidgets(res[9].data || []);
       say("load-msg", "");
     } catch (err) {
       if (g !== gen) return;
@@ -411,6 +426,41 @@ details summary { cursor: pointer; font-weight: 600; }
     b.disabled = true;
     var r = await sb.rpc("set_device_active", { p_uid: b.getAttribute("data-uid"), p_active: activate });
     if (r.error) alert("変更できませんでした（" + r.error.message + "）");
+    load();
+  });
+
+  function renderWidgets(list) {
+    if (!list.length) { $("wdevs").innerHTML = '<li class="muted">まだありません</li>'; return; }
+    $("wdevs").innerHTML = list.map(function (w) {
+      return "<li><span>ウィジェット（" + esc(String(w.id)) + "）<br><span class=\"small muted\">" + fmt(w.created_at) + " 登録・" +
+        (w.revoked_at ? fmt(w.revoked_at) + " に無効にしました" : "使用中") + "</span></span>" +
+        (w.revoked_at ? "" : '<button data-wid="' + esc(String(w.id)) + '">無効にする</button>') + "</li>";
+    }).join("");
+  }
+
+  $("wdevs").addEventListener("click", async function (e) {
+    var b = e.target.closest("button[data-wid]"); if (!b) return;
+    if (!confirm("このウィジェットを無効にしますか？（戻せません。使うときはコードで登録し直します）")) return;
+    b.disabled = true;
+    var r = await sb.rpc("revoke_widget", { p_id: Number(b.getAttribute("data-wid")) });
+    if (r.error) alert("変更できませんでした（" + r.error.message + "）");
+    load();
+  });
+
+  $("wclaim-form").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var code = $("wcode").value.replace(/\D/g, "");
+    if (code.length !== 6) { say("wclaim-msg", "6桁の数字を入れてください", "bad"); return; }
+    say("wclaim-msg", "登録中…");
+    var r = await sb.rpc("claim_widget", { p_code: code, p_child: $("child").value || children[0].id });
+    if (r.error) { say("wclaim-msg", "登録できませんでした（" + r.error.message + "）", "bad"); return; }
+    var why = { bad_code: "コードが違うか、期限（30分）が切れています。iPad のウィジェットのコードを確かめてください。",
+      too_many_attempts: "失敗が続いたので、1時間ほど待ってからもう一度どうぞ。",
+      registered_to_other_child: "このウィジェットは別の子どもに登録済みです。",
+      revoked: "このウィジェットは無効にされています。ウィジェットに新しいコードが出るのを待ってください。" };
+    if (!r.data || !r.data.ok) { say("wclaim-msg", why[r.data && r.data.reason] || "登録できませんでした", "bad"); return; }
+    $("wcode").value = "";
+    say("wclaim-msg", "登録しました。ウィジェットは iPad の都合で、数分〜1時間ほどでコードが消えて学習の様子に変わります。", "good");
     load();
   });
 
