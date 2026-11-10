@@ -9,7 +9,7 @@ const IMG_BASE = "https://junsingapore.github.io/skyline-maths/widget/";
 const OPEN_URL = "https://junsingapore.github.io/rooftop-english/";
 const KEY_NAME = "mai-study-widget-key";
 const CACHE_FILE = "mai-study-widget-cache.json";
-const IMG_VERSION = "1";            // 絵を描き直したら上げる（iPad の保存分を取り直す）
+const IMG_VERSION = "2";            // 絵を描き直したら上げる（iPad の保存分を取り直す）
 const ROTATE_FROM = "2026-11-09";   // この週（月曜）＝えんちゃん、翌週＝こうちゃん、…と交互
 
 // ===== 決め方（Scriptable の外でもテストできる部分：test-widget.js が下の印の手前まで読む）=====
