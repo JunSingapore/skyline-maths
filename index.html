@@ -1038,7 +1038,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.4 ui-monospace, Menlo, m
     });
     var sw = Object.keys(sureWrong), st = CO.stickers(S);
     var h = '<section class="panel"><h3>自信の申告・考える問い（直近30日）</h3>';
-    h += "<p>自信の申告 " + confN + " 回・考える問い " + thinkN + " 回（正誤のある問い " + thinkOk + " 回正解）・Sam's notebook " + CO.ensure(S).notebook.length + "・ボスのシール " + st.tried + "（全問正解 " + st.perfect + "）</p>";
+    h += "<p>自信の申告 " + confN + " 回・考える問い " + thinkN + " 回（正誤のある問い " + thinkOk + " 回正解）・Koh's notebook " + CO.ensure(S).notebook.length + "・ボスのシール " + st.tried + "（全問正解 " + st.perfect + "）</p>";
     h += "<p>自信ありで間違えた型：" + (sw.length ? sw.map(function (k) { return esc(T[k] ? T[k].ja : k) + "×" + sureWrong[k]; }).join("、") : "なし") + "</p>";
     if (notRight) h += "<p>自信なしで正解：" + notRight + " 回（できているのに自信がない）</p>";
     h += '<p class="note">「自信ありで間違えた型」は思い込みの可能性があり、次の回で先に出ます。考える問い・ボスはポイントと学習日には入りません。</p></section>';
