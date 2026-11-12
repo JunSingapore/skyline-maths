@@ -42,7 +42,7 @@ function decide(o) {
     const s = o.fresh;
     let pose;
     if (s.today_done) pose = "done";
-    else if (hour >= 17 && !s.yesterday_done) pose = "crash";   // 朝は昨日やっていなくてもふだんの顔
+    else if (!s.yesterday_done) pose = "crash";   // 昨日もやっていない：朝から一日中 魂が抜けた顔（11/12 変更。前は朝はふだんの顔）
     else if (hour < 17) pose = "normal";
     else if (hour < 20) pose = "wait";
     else pose = "roll";
