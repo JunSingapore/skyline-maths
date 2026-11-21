@@ -8,13 +8,13 @@
  *  - mix: 1回（Start）の配分。単元 id と問題数。short は合計8問、long は合計14問
  */
 window.MATH_CONTENT = {
-  version: "2026-11-08",
+  version: "2026-11-21",
   appName: "Skyline Maths",
 
   units: [
     {
       id: "m-pmc",
-      status: "next",
+      status: "review",
       separate: true,   // 普段の練習とは混ぜない（Start の配分・混ぜて出す・ボスに入れない。この単元の Practise だけで出る）
       when: "PMC · 11–20 Nov",
       title: "PMC challenge problems",
@@ -34,7 +34,7 @@ window.MATH_CONTENT = {
     {
       id: "m-measure",
       status: "next",
-      when: "Weeks of 2 & 9 Nov",
+      when: "Week of 23 Nov · finishing volume",
       title: "Perimeter, area & volume",
       ja: "測定（周の長さ・長方形/L字・平行四辺形・三角形の面積・直方体の体積）",
       types: ["meas-perimeter", "meas-area-rect", "meas-area-para", "meas-area-tri", "meas-volume"],
@@ -42,7 +42,7 @@ window.MATH_CONTENT = {
     },
     {
       id: "m-measure-units",
-      status: "next",
+      status: "review",
       when: "Week of 9 Nov",
       title: "Converting units",
       ja: "単位の換算（長さ・面積・体積・リットル／重さ kg・g・t／時間 週・日・時・分・秒）",
@@ -51,7 +51,7 @@ window.MATH_CONTENT = {
     },
     {
       id: "m-measure-word",
-      status: "next",
+      status: "review",
       when: "Weeks of 2 & 9 Nov",
       title: "Measurement word problems",
       ja: "測定の文章題（PMC 風：面積から辺・正方形・立方体を詰める・フェンス代）",
@@ -60,21 +60,21 @@ window.MATH_CONTENT = {
     },
     {
       id: "m-frac-muldiv",
-      status: "review",
-      when: "Week of 26 Oct",
+      status: "next",
+      when: "Week of 23 Nov",
       title: "Multiplying & dividing fractions",
       ja: "分数のかけ算・わり算（整数との計算・ひっくり返してかける）",
       types: ["frac-mul", "frac-mul-whole", "frac-div-whole", "frac-div"],
-      source: "Michaelmas W9 ニュースレター（10/23・/news/13125）：約分・同値分数を終え、分数の四則演算を使った式（仮分数・帯分数を含む）へ"
+      source: "Michaelmas W13 ニュースレター（11/20・/news/13708）：体積を仕上げて分数に戻る＝分数×整数・分数×分数 → 分数÷整数。効率のよい方法・約分。もとは W9（10/23・/news/13125）"
     },
     {
       id: "m-frac-word",
-      status: "review",
-      when: "Week of 26 Oct",
+      status: "next",
+      when: "Week of 23 Nov",
       title: "Fraction word problems",
       ja: "分数の文章題（たし算・かけ算・わり算・〜の〜）",
       types: ["frac-word"],
-      source: "Michaelmas W9 ニュースレター（10/23・/news/13125）：分数の文章題・チャレンジ問題"
+      source: "Michaelmas W13 ニュースレター（11/20・/news/13708）：分数のかけ算・わり算を計算と考える問題（reasoning）に使う。もとは W9（10/23・/news/13125）"
     },
     {
       id: "m-frac-addsub",
@@ -124,7 +124,7 @@ window.MATH_CONTENT = {
   ],
 
   mix: {
-    short: [["m-measure", 2], ["m-measure-units", 2], ["m-measure-word", 1], ["m-frac-muldiv", 1], ["m-mixed", 1], ["m-decimals", 1]],
-    long: [["m-measure", 4], ["m-measure-units", 3], ["m-measure-word", 2], ["m-frac-muldiv", 1], ["m-frac-word", 1], ["m-mixed", 1], ["m-decimals", 2]]
+    short: [["m-frac-muldiv", 3], ["m-frac-word", 1], ["m-measure", 1], ["m-measure-units", 1], ["m-mixed", 1], ["m-decimals", 1]],
+    long: [["m-frac-muldiv", 5], ["m-frac-word", 2], ["m-measure", 2], ["m-measure-units", 1], ["m-measure-word", 1], ["m-mixed", 1], ["m-decimals", 2]]
   }
 };
